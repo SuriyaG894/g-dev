@@ -12,7 +12,7 @@ export interface Rect {
 
 export type Power = 'pluck' | 'place'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood'
 
 /** Per-word overrides, keyed by the word's current spelling (e.g. tune.RIDGE). */
 export interface Tune {
@@ -26,8 +26,9 @@ export interface Tune {
   dy?: number
   speed?: number
   light?: number
-  /** Label height override, for very tall things. */
+  /** Label position overrides, for very tall or very wide things. */
   ly?: number
+  lx?: number
 }
 
 export interface WordDef {
@@ -44,8 +45,34 @@ export interface WordDef {
 export type NoteTrigger =
   | { start: number }
   | { x: number }
+  /** Fires when the Reader climbs above this height. */
+  | { y: number }
   | { word: string }
-  | { event: 'dark' | 'diary' | 'firstQuill' }
+  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' }
+
+/**
+ * A body of water whose level can change. Tide words (RAIN, SINK…) shift it;
+ * a pool that `rises` climbs on its own while a FLOOD word exists.
+ */
+export interface PoolDef {
+  x: number
+  w: number
+  /** Resting surface height. */
+  base: number
+  /** Highest the water can reach. */
+  top: number
+  /** The floor of the pool (water can't go lower). */
+  bottom: number
+  rise?: { speed: number; delay: number }
+}
+
+/** A lost letter, drifting in the air, waiting to be caught. */
+export interface LetterDef {
+  id: string
+  letter: string
+  x: number
+  y: number
+}
 
 export interface NoteDef {
   text: string
@@ -65,12 +92,18 @@ export interface LevelDef {
   subtitle: string
   theme: Theme
   width: number
+  /** World height; taller than the 540px view scrolls vertically. */
+  height?: number
   spawn: Vec
   exit: Vec
   /** Solid ground. */
   terrain: Rect[]
-  /** Water: ink dissolves in it. */
+  /** Still water: ink dissolves in it. */
   water?: Rect[]
+  pools?: PoolDef[]
+  letters?: LetterDef[]
+  /** Death restarts the whole page (chases, floods). */
+  restartOnDeath?: boolean
   words: WordDef[]
   powers: Power[]
   /** How many letters the quill can hold (only matters with the place power). */

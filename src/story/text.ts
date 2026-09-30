@@ -26,6 +26,7 @@ export const EVENT_NOTES = {
   full: 'Your quill is full. Write a letter somewhere, or shake one off.',
   short: 'A word needs at least one letter to exist.',
   blotDeath: 'It took the whole page. Start again. Quicker this time.',
+  pageDeath: 'The page starts over. Everything remembers where it was.',
   returned: 'You left. I noticed.',
 }
 
@@ -49,14 +50,33 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-2',
+    title: 'Another page from the diary',
+    body: [
+      'Mira was in hospital again. I read her the first chapter.',
+      'She asked what the Blot was. I said it was only a spill.',
+      'She said, “Spills don’t have eyes.”',
+      'I have never drawn it eyes.',
+      '— A.',
+    ],
+  },
 ]
 
-export const CHAPTER_END = [
-  'The Blot stops at the edge of the page.',
-  'It doesn’t follow.',
-  'It waits, as if it were listening.',
-  'Somewhere in the dark, a pencil begins to move.',
-]
+export const CHAPTER_ENDS: Record<number, string[]> = {
+  1: [
+    'The Blot stops at the edge of the page.',
+    'It doesn’t follow.',
+    'It waits, as if it were listening.',
+    'Somewhere in the dark, a pencil begins to move.',
+  ],
+  2: [
+    'The water goes still. The library is quiet.',
+    'High in the rafters, the Librarian writes one new word in gold:',
+    'REMEMBER.',
+    'Far below, something black is learning to swim.',
+  ],
+}
 
 export function pick<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)]

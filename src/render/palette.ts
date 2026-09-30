@@ -31,4 +31,7 @@ export const PALETTES: Record<Theme, Palette> = {
   river: { ...base, accent: '#2f6874', paper: '#eee6d2' },
   night: { ...base, accent: '#4f557f', paper: '#e8decb', paperDark: '#d6c7a8' },
   blot: { ...base, accent: '#8a2f2a', paper: '#ede0c6', paperDark: '#dac7a2' },
+  library: { ...base, accent: '#2d5f73', paper: '#ebe3cf', paperDark: '#d6c8a7', water: '#1f4f63', leaf: '#557a5a' },
+  archive: { ...base, accent: '#6a4f86', paper: '#e4d9c2', paperDark: '#cfbf9d', water: '#223c52' },
+  flood: { ...base, accent: '#1f5a70', paper: '#e7ddc7', paperDark: '#d2c3a1', water: '#184a60' },
 }

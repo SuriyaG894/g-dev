@@ -26,6 +26,18 @@ export interface Kind {
   darkness?: boolean
   whisper?: boolean
   scribble?: boolean
+  /** Shifts every pool's water level (negative raises it). */
+  tide?: number
+  /** Floats on a pool's surface, sunk this many px. */
+  floats?: number
+  /** Swims this many px below a pool's surface. */
+  swims?: number
+  /** Makes a sound the Librarian cannot bear. */
+  noise?: boolean
+  /** The Librarian: hunts noise, then silences it. */
+  guardian?: boolean
+  /** The water itself. While it exists, a rising pool keeps rising. */
+  flood?: boolean
 }
 
 export const LEXICON: Record<string, Kind> = {
@@ -75,6 +87,31 @@ export const LEXICON: Record<string, Kind> = {
   LANE: { art: 'lane', w: 300, h: 20, platform: true, desc: 'A lane across the nothing.' },
   PLANT: { art: 'plant', w: 40, h: 52, desc: 'A potted plant, floating.' },
   PANE: { art: 'pane', w: 60, h: 60, desc: 'A pane of glass. Nothing to stand on.' },
+
+  // Chapter II: The Drowned Library
+  TRAIN: { art: 'train', w: 70, h: 24, vehicle: true, desc: 'A little train. It still runs.' },
+  RAIN: { art: 'rain', w: 420, h: 100, tide: -160, desc: 'Rain, indoors. The water rises.' },
+  DRAIN: { art: 'drain', w: 80, h: 20, tide: 320, desc: 'A drain. Down it all goes.' },
+  DRAFT: { art: 'draft', w: 120, h: 50, desc: 'A cold draft over the water.' },
+  RAFT: { art: 'raft', w: 130, h: 26, vehicle: true, floats: 8, desc: 'A raft. It floats wherever the water is.' },
+  RAT: { art: 'rat', w: 34, h: 16, desc: 'A library rat.' },
+  INK: { art: 'inkpot', w: 28, h: 30, desc: 'My inkpot. Nearly empty.' },
+  SINK: { art: 'sink', w: 90, h: 30, tide: 260, desc: 'A sink with the plug pulled.' },
+  EELS: { art: 'eels', w: 200, h: 40, hazard: true, swims: 30, desc: 'A school of eels.' },
+  EEL: { art: 'eel', w: 70, h: 22, hazard: true, swims: 30, desc: 'One eel.' },
+  CAGE: { art: 'cage', w: 80, h: 120, solid: true, desc: 'An iron cage.' },
+  PAGE: { art: 'page', w: 90, h: 14, vehicle: true, desc: 'A page that turns, and lifts.' },
+  CANDLE: { art: 'candle', w: 16, h: 40, light: 360, desc: 'The Librarian’s candle.' },
+  CROW: { art: 'crow', w: 100, h: 30, vehicle: true, desc: 'A crow. It carries things across.' },
+  BOOK: { art: 'book', w: 36, h: 12, solid: true, desc: 'A book, lying flat.' },
+  BOOKS: { art: 'books', w: 50, h: 70, solid: true, desc: 'A stack of books. Good for standing on.' },
+  RING: { art: 'bell', w: 40, h: 34, noise: true, desc: 'A desk bell, ringing and ringing.' },
+  BELL: { art: 'bell', w: 40, h: 34, noise: true, desc: 'A bell. Loud.' },
+  ROAR: { art: 'roar', w: 90, h: 40, noise: true, desc: 'A roar, with nobody making it.' },
+  LIBRARIAN: { art: 'librarian', w: 60, h: 118, hazard: true, guardian: true, desc: 'The Librarian. Gold ink, head to toe.' },
+  ROPE: { art: 'rope', w: 24, h: 260, climb: true, desc: 'A rope. Climbable.' },
+  FLOOD: { art: 'flood', w: 0, h: 0, flood: true, desc: 'The flood. It is rising.' },
+  FLOOR: { art: 'floor', w: 1100, h: 26, solid: true, floats: 4, desc: 'A floor, floating where the flood was.' },
 }
 
 export const WHISPER: Kind = {

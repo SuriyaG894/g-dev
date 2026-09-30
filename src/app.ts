@@ -1,7 +1,7 @@
 import { Sound } from './audio/sound'
 import type { LevelDef } from './game/types'
 import { Controls } from './input'
-import { ALL_LEVELS, CHAPTERS, levelById, nextLevel } from './levels'
+import { ALL_LEVELS, CHAPTERS, levelById, nextLevel, type ChapterInfo } from './levels'
 import { Play } from './play'
 import { Renderer } from './render/renderer'
 import { load, persist, wipe, type SaveData, type Settings } from './save'
@@ -120,11 +120,13 @@ export class App {
     else void this.turn(go)
   }
 
-  showBook(): void {
-    void this.turn(() => {
+  showBook(chapter?: ChapterInfo, instant = false): void {
+    const go = () => {
       this.leavePlay()
-      this.setScreen(screens.bookScreen(this))
-    })
+      this.setScreen(screens.bookScreen(this, chapter))
+    }
+    if (instant) go()
+    else void this.turn(go)
   }
 
   showDiary(back: () => void): void {
@@ -194,7 +196,7 @@ export class App {
       void this.turn(() => {
         this.leavePlay()
         this.sound.startAmbient('night')
-        this.setScreen(screens.chapterEndScreen(this))
+        this.setScreen(screens.chapterEndScreen(this, chapter))
       })
       return
     }

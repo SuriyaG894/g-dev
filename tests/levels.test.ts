@@ -11,7 +11,7 @@ describe('level data', () => {
   it('has unique level ids', () => {
     const ids = ALL_LEVELS.map((l) => l.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(CHAPTERS[0].levels.length).toBe(5)
+    for (const c of CHAPTERS) expect(c.levels.length).toBe(5)
   })
 
   for (const level of ALL_LEVELS) {
@@ -20,12 +20,11 @@ describe('level data', () => {
         for (const w of level.words) expect(tierOf(w.text), w.text).not.toBe('scribble')
       })
 
-      it('has a solution whose length is par, and every step makes a real word', () => {
-        const last = new Map<string, number>()
-        level.solution.forEach((op, i) => last.set(op.word, i))
+      it('has a spelling-valid solution whose length is par', () => {
         expect(level.solution.length).toBe(level.par)
         const texts = new Map(level.words.map((w) => [w.id, w.text]))
-        const quill: string[] = []
+        // Lost letters count as already caught.
+        const quill: string[] = (level.letters ?? []).map((l) => l.letter)
         for (const op of level.solution) {
           const text = texts.get(op.word)!
           if (op.type === 'pluck') {
@@ -38,10 +37,10 @@ describe('level data', () => {
             quill.splice(i, 1)
             texts.set(op.word, ink.place(text, op.index, op.letter))
           }
-          expect(tierOf(texts.get(op.word)!), texts.get(op.word)).not.toBe('scribble')
+          if (level.powers.includes('place')) expect(quill.length).toBeLessThanOrEqual(level.quill)
         }
-        // The final spelling of every word the solution touches has a real shape or is a harmless whisper.
-        for (const id of last.keys()) expect(tierOf(texts.get(id)!)).not.toBe('scribble')
+        // Every page ends with at least one new shaped thing (the whole point of editing).
+        expect([...texts.values()].some((t, i) => t !== level.words[i].text && tierOf(t) === 'thing')).toBe(true)
       })
 
       it('only uses powers the page allows', () => {

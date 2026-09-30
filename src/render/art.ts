@@ -2,6 +2,7 @@
 import type { Rect } from '../game/types'
 import type { Entity } from '../game/world'
 import type { Palette } from './palette'
+import { ART_2 } from './art2'
 import type { Pen, Pt } from './pen'
 
 export interface ArtCtx {
@@ -442,7 +443,7 @@ export const ART: Record<string, Art> = {
     c.textAlign = 'center'
     c.textBaseline = 'middle'
     c.globalAlpha = 0.18
-    c.fillStyle = pal.ink
+    c.fillStyle = ent.gold ? pal.gold : pal.ink
     c.fillText(ent.text, cx + 2, cy + 3)
     c.globalAlpha = 0.72
     c.fillText(ent.text, cx, cy)
@@ -461,3 +462,5 @@ export const ART: Record<string, Art> = {
     pen.stroke(pts.slice().reverse(), { w: 1, color: '#6b2a1f', wob: 6, alpha: 0.7, plain: true })
   },
 }
+
+Object.assign(ART, ART_2)

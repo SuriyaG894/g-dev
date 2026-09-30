@@ -22,6 +22,10 @@ export type Sfx =
   | 'undo'
   | 'click'
   | 'dark'
+  | 'letter'
+  | 'shush'
+  | 'bell'
+  | 'water'
 
 const SCALES: Record<Theme, number[]> = {
   // A minor pentatonic, gentle.
@@ -30,6 +34,10 @@ const SCALES: Record<Theme, number[]> = {
   // Lower and sparser.
   night: [164.81, 196, 220, 246.94, 329.63, 392],
   blot: [110, 130.81, 146.83, 155.56, 196, 220],
+  // D dorian: old, echoing rooms.
+  library: [146.83, 174.61, 196, 220, 261.63, 293.66, 349.23, 392],
+  archive: [138.59, 164.81, 185, 207.65, 246.94, 277.18],
+  flood: [110, 123.47, 146.83, 164.81, 196, 220],
 }
 
 export class Sound {
@@ -208,6 +216,19 @@ export class Sound {
       case 'dark':
         this.tone(130.81, 1.6, { gain: 0.1, to: 98, attack: 0.1 })
         break
+      case 'letter':
+        this.tone(987.77, 0.3, { gain: 0.07 })
+        this.tone(1318.5, 0.5, { gain: 0.06, at: 0.07 })
+        break
+      case 'shush':
+        this.hiss(1.4, { freq: 5200, q: 0.6, gain: 0.16, type: 'highpass' })
+        break
+      case 'bell':
+        for (let i = 0; i < 3; i++) this.tone(1568, 0.6, { gain: 0.08, at: i * 0.28, type: 'triangle' })
+        break
+      case 'water':
+        this.hiss(1.2, { freq: 400, q: 0.5, gain: 0.12, type: 'lowpass', to: 900 })
+        break
     }
   }
 
@@ -224,7 +245,8 @@ export class Sound {
     out.connect(this.music)
     const filter = ctx.createBiquadFilter()
     filter.type = 'lowpass'
-    filter.frequency.value = theme === 'blot' ? 380 : 700
+    const tense = theme === 'blot' || theme === 'flood'
+    filter.frequency.value = tense ? 380 : 700
     filter.connect(out)
     const root = SCALES[theme][0] / 2
     const oscs: OscillatorNode[] = []
@@ -234,11 +256,11 @@ export class Sound {
       [2, 0],
     ]) {
       const o = ctx.createOscillator()
-      o.type = theme === 'blot' ? 'sawtooth' : 'triangle'
+      o.type = tense ? 'sawtooth' : 'triangle'
       o.frequency.value = root * mult
       o.detune.value = detune
       const g = ctx.createGain()
-      g.gain.value = theme === 'blot' ? 0.018 : 0.03
+      g.gain.value = tense ? 0.018 : 0.03
       o.connect(g).connect(filter)
       o.start()
       oscs.push(o)
@@ -256,23 +278,23 @@ export class Sound {
     const noteLoop = () => {
       if (!alive || !this.ctx) return
       const f = scale[Math.floor(Math.random() * scale.length)]
-      const g = theme === 'blot' ? 0.05 : 0.07
+      const g = tense ? 0.05 : 0.07
       this.tone(f, 2.8, { gain: g, dest: this.echo, attack: 0.01 })
       this.tone(f, 2.8, { gain: g * 0.6, dest: this.music, attack: 0.01 })
       if (Math.random() < 0.3) this.tone(f * 1.5, 2.2, { gain: g * 0.4, dest: this.echo, at: 0.25 })
-      const gap = theme === 'night' ? 3.2 : theme === 'blot' ? 1.6 : 2.2
+      const gap = theme === 'night' || theme === 'archive' ? 3.2 : tense ? 1.6 : 2.2
       timer = window.setTimeout(noteLoop, (gap + Math.random() * gap) * 1000)
     }
     timer = window.setTimeout(noteLoop, 1200)
 
     let beat = 0
-    if (theme === 'blot') {
+    if (tense) {
       // A heartbeat.
       const pulse = () => {
         if (!alive) return
         this.tone(55, 0.25, { gain: 0.16, dest: this.music, to: 40 })
         this.tone(55, 0.2, { gain: 0.1, dest: this.music, to: 40, at: 0.22 })
-        beat = window.setTimeout(pulse, 1100)
+        beat = window.setTimeout(pulse, theme === 'flood' ? 850 : 1100)
       }
       beat = window.setTimeout(pulse, 500)
     }

@@ -1,7 +1,7 @@
 import type { App } from '../app'
 import type { LevelDef } from '../game/types'
-import { CHAPTERS, UPCOMING } from '../levels'
-import { CHAPTER_END, DIARY, PROLOGUE } from '../story/text'
+import { ALL_LEVELS, CHAPTERS, UPCOMING, chapterOf, type ChapterInfo } from '../levels'
+import { CHAPTER_ENDS, DIARY, PROLOGUE } from '../story/text'
 import { button, h, roman, words } from './dom'
 
 // ------------------------------------------------------------------- title
@@ -59,18 +59,24 @@ export function titleScreen(app: App): HTMLElement {
     letters,
     h('p', { class: 'tagline', text: 'Every world is written. Every word can be unwritten.' }),
     menu,
-    h('div', { class: 'title-foot', text: 'v0.1 · Chapter I of VII · Headphones recommended' }),
+    h('div', { class: 'title-foot', text: `v0.2 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
   )
 }
 
 // -------------------------------------------------------------------- book
 
-export function bookScreen(app: App): HTMLElement {
-  const ch = CHAPTERS[0]
+/** A page is open once the page before it (in reading order) is finished. */
+export function isOpen(app: App, lvl: LevelDef): boolean {
+  const i = ALL_LEVELS.indexOf(lvl)
+  return i === 0 || app.save.completed.includes(lvl.id) || app.save.completed.includes(ALL_LEVELS[i - 1].id)
+}
+
+export function bookScreen(app: App, chapter?: ChapterInfo): HTMLElement {
+  const ch = chapter ?? chapterOf(app.nextUnfinished())
   const pages = h('ol', { class: 'pages' })
-  ch.levels.forEach((lvl, i) => {
+  ch.levels.forEach((lvl) => {
     const done = app.save.completed.includes(lvl.id)
-    const open = i === 0 || app.save.completed.includes(ch.levels[i - 1].id) || done
+    const open = isOpen(app, lvl)
     const best = app.save.best[lvl.id]
     const perfect = done && best !== undefined && best <= lvl.par
     const status = !open ? 'the ink is still wet' : perfect ? '✒ Perfect Ink' : done ? `complete · ink ${best}` : 'unread'
@@ -85,6 +91,22 @@ export function bookScreen(app: App): HTMLElement {
     else item.disabled = true
     pages.append(h('li', {}, item))
   })
+  const tabs = h(
+    'div',
+    { class: 'chapter-tabs', attrs: { role: 'tablist' } },
+    ...CHAPTERS.map((c) => {
+      const open = isOpen(app, c.levels[0])
+      const b = button(`${roman(c.number)} · ${c.title}`, () => app.showBook(c, true), 'tab' + (c === ch ? ' on' : ''), {
+        role: 'tab',
+        'aria-selected': String(c === ch),
+      })
+      if (!open) {
+        b.disabled = true
+        b.textContent = `${roman(c.number)} · locked`
+      }
+      return b
+    }),
+  )
   const upcoming = h(
     'ul',
     { class: 'upcoming' },
@@ -93,6 +115,7 @@ export function bookScreen(app: App): HTMLElement {
   return h(
     'div',
     { class: 'screen book-screen' },
+    tabs,
     h(
       'div',
       { class: 'book card' },
@@ -101,7 +124,7 @@ export function bookScreen(app: App): HTMLElement {
         { class: 'book-left' },
         h('div', { class: 'bl-kicker', text: `Chapter ${roman(ch.number)}` }),
         h('h2', { text: ch.title }),
-        h('p', { text: 'Where the Reader wakes, the woods remember their words, and something black waits at the edge of the page.' }),
+        h('p', { text: ch.blurb }),
         h('p', { class: 'bl-power', text: `Ink powers: ${ch.power}` }),
         upcoming,
       ),
@@ -255,30 +278,37 @@ export function completeScreen(app: App, level: LevelDef, edits: number, prevBes
 
 // ------------------------------------------------------------- chapter end
 
-export function chapterEndScreen(app: App): HTMLElement {
-  const lines = CHAPTER_END.map((l, i) => {
+export function chapterEndScreen(app: App, chapter: ChapterInfo): HTMLElement {
+  const text = CHAPTER_ENDS[chapter.number] ?? []
+  const lines = text.map((l, i) => {
     const p = h('p', { text: l })
     p.style.animationDelay = `${0.6 + i * 1.8}s`
     return p
   })
+  const next = CHAPTERS.find((c) => c.number === chapter.number + 1)
+  const upcoming = UPCOMING.find((u) => u.number === chapter.number + 1)
   const found = app.save.diary.length
   const card = h(
     'div',
     { class: 'card chapter-card' },
-    h('div', { class: 'muted', text: 'Chapter I complete' }),
-    h('h2', { text: 'The Margin Woods' }),
+    h('div', { class: 'muted', text: `Chapter ${roman(chapter.number)} complete` }),
+    h('h2', { text: chapter.title }),
     h('p', { text: `Diary pages found: ${found} of ${DIARY.length}` }),
-    h('p', { class: 'muted', text: 'Chapter II, The Drowned Library, is still being written.' }),
+    next
+      ? h('p', { class: 'muted', text: `Chapter ${roman(next.number)}, ${next.title}, is open.` })
+      : upcoming
+        ? h('p', { class: 'muted', text: `Chapter ${roman(upcoming.number)}, ${upcoming.title}, is still being written.` })
+        : null,
     h('p', { class: 'whisper', text: 'Something on the title page has changed.' }),
     h(
       'div',
       { class: 'row' },
-      button('Share', () => app.share(), 'btn primary'),
+      next ? button(`Begin Chapter ${roman(next.number)} →`, () => app.startLevel(next.levels[0]), 'btn primary') : null,
+      button('Share', () => app.share(), next ? 'btn' : 'btn primary'),
       button('Diary', () => app.showDiary(() => app.showTitle()), 'btn'),
-      button('Pages', () => app.showBook(), 'btn'),
       button('Title', () => app.showTitle(), 'btn'),
     ),
   )
-  card.style.animationDelay = `${0.6 + CHAPTER_END.length * 1.8}s`
+  card.style.animationDelay = `${0.6 + text.length * 1.8}s`
   return h('div', { class: 'screen dark-screen chapter-end' }, h('div', { class: 'dark-lines' }, ...lines), card)
 }

@@ -46,6 +46,9 @@ export class Renderer {
   viewW = 960
   offY = 0
   camX = 0
+  camY = 0
+  /** Height of the world being drawn. */
+  private worldH = VIEW_H
   labels: LabelHit[] = []
   private noise: CanvasPattern | null = null
   private dark: HTMLCanvasElement
@@ -105,11 +108,11 @@ export class Renderer {
   }
 
   toWorld(px: number, py: number): Pt {
-    return { x: px / this.scale + this.camX, y: (py - this.offY) / this.scale }
+    return { x: px / this.scale + this.camX, y: (py - this.offY) / this.scale + this.camY }
   }
 
   toScreen(x: number, y: number): Pt {
-    return { x: (x - this.camX) * this.scale, y: y * this.scale + this.offY }
+    return { x: (x - this.camX) * this.scale, y: (y - this.camY) * this.scale + this.offY }
   }
 
   follow(world: World, dt: number, snap = false): void {
@@ -118,6 +121,9 @@ export class Renderer {
     let target = p.x - this.viewW * 0.42 + p.vx * 0.25
     target = world.level.width < this.viewW ? (world.level.width - this.viewW) / 2 : Math.max(0, Math.min(max, target))
     this.camX = snap ? target : this.camX + (target - this.camX) * Math.min(1, dt * 4)
+    const h = world.level.height ?? VIEW_H
+    const ty = h <= VIEW_H ? 0 : Math.max(0, Math.min(h - VIEW_H, p.y - VIEW_H * 0.62))
+    this.camY = snap ? ty : this.camY + (ty - this.camY) * Math.min(1, dt * 5)
     if (snap) this.darkAmt = world.isDark ? 1 : 0
   }
 
@@ -148,7 +154,7 @@ export class Renderer {
     const s = this.scale * this.dpr
     const sx = shake ? (Math.random() - 0.5) * shake : 0
     const sy = shake ? (Math.random() - 0.5) * shake : 0
-    this.ctx.setTransform(s, 0, 0, s, (-this.camX + sx) * s, (this.offY + sy * this.scale) * this.dpr)
+    this.ctx.setTransform(s, 0, 0, s, (-this.camX + sx) * s, (this.offY + (sy - this.camY) * this.scale) * this.dpr)
   }
 
   draw(world: World, st: DrawState): void {
@@ -159,12 +165,14 @@ export class Renderer {
     pen.ink = pal.ink
     pen.wobble = st.reduced ? 0.8 : 1.2
     const boil = st.reduced ? 0 : Math.floor(st.t * 6) % 4
+    this.worldH = lvl.height ?? VIEW_H
 
     this.paperFill(pal)
     this.worldTransform(st.shake)
 
     pen.boil = 0
-    this.background(lvl.theme, pal, st.t, lvl.width)
+    if (lvl.theme === 'library' || lvl.theme === 'archive' || lvl.theme === 'flood') this.shelves(lvl.theme, pal, st.t)
+    else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
 
@@ -184,6 +192,7 @@ export class Renderer {
       const reveal = st.reduced ? 1 : Math.min(1, ent.age / 0.45)
       this.entity(ent, pal, st, boil, reveal)
     }
+    this.pools(world, pal, st.t)
     this.labelsFor(world, pal, st)
 
     if (!world.dead) this.player(world, pal, st.t)
@@ -196,6 +205,7 @@ export class Renderer {
     if (this.darkAmt > 0.01) this.darkness(world, st.t)
     this.worldTransform(st.shake)
     this.diary(world, st.t)
+    this.letters(world, pal, st.t)
 
     if (st.selected) this.editOverlay(world, pal)
     if (st.debug) this.debug(world)
@@ -273,6 +283,120 @@ export class Renderer {
     }
   }
 
+  /** Endless shelves of books, for the Drowned Library. */
+  private shelves(theme: Theme, pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    const par = 0.35
+    const parY = 0.5
+    const left = this.camX * par
+    const top = this.camY * parY
+    const wx = (px: number) => this.camX + (px - left)
+    const wy = (py: number) => this.camY + (py - top)
+    const caseW = 190
+    const shelfH = 66
+    const y0 = this.camY - 20
+    const y1 = this.camY + VIEW_H + 20
+    const ink = theme === 'archive' ? 0.1 : 0.075
+    c.save()
+    for (let px = Math.floor((left - 220) / caseW) * caseW; px <= left + this.viewW + 220; px += caseW) {
+      const k = Math.round(px / caseW)
+      const x = wx(px + 12)
+      const w = caseW - 34
+      pen.seed(k * 13 + 1)
+      pen.line(x, y0, x, y1, { w: 1.4, alpha: 0.14, plain: true })
+      pen.line(x + w, y0, x + w, y1, { w: 1.4, alpha: 0.14, plain: true })
+      for (let py = Math.floor((top - shelfH) / shelfH) * shelfH; py <= top + VIEW_H + shelfH; py += shelfH) {
+        const y = wy(py)
+        c.globalAlpha = 0.14
+        c.fillStyle = pal.ink
+        c.fillRect(x, y, w, 2)
+        let bx = x + 4
+        let j = 0
+        while (bx < x + w - 8) {
+          const r = hash(k * 131 + py * 0.37 + j * 7.1)
+          const bw = 6 + r * 9
+          const bh = 28 + hash(r * 91 + j) * 26
+          if (r > 0.12) {
+            c.globalAlpha = ink * (0.7 + r * 0.6)
+            c.fillRect(bx, y - bh, bw - 2, bh)
+          }
+          bx += bw
+          j++
+        }
+      }
+    }
+    c.restore()
+    if (theme !== 'flood') {
+      // Lanterns on chains, swaying a little.
+      for (let px = Math.floor((left - 300) / 520) * 520 + 260; px <= left + this.viewW + 300; px += 520) {
+        const x = wx(px)
+        const sway = Math.sin(t * 0.8 + px) * 4
+        pen.seed(px)
+        pen.line(x, this.camY - 10, x + sway, this.camY + 70, { w: 1.2, alpha: 0.25, plain: true })
+        const g = c.createRadialGradient(x + sway, this.camY + 82, 2, x + sway, this.camY + 82, 60)
+        g.addColorStop(0, `rgba(245,217,138,${theme === 'archive' ? 0.1 : 0.3})`)
+        g.addColorStop(1, 'rgba(245,217,138,0)')
+        c.fillStyle = g
+        c.fillRect(x + sway - 60, this.camY + 22, 120, 120)
+        pen.rect(x + sway - 7, this.camY + 72, 14, 18, { w: 1.2, alpha: 0.35, plain: true })
+      }
+    }
+  }
+
+  private pools(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    for (const r of world.waterRects()) {
+      const x0 = Math.max(r.x, this.camX - 20)
+      const x1 = Math.min(r.x + r.w, this.camX + this.viewW + 20)
+      if (x1 <= x0 || r.y > this.camY + VIEW_H + 20) continue
+      const y1 = Math.min(r.y + r.h, this.camY + VIEW_H + 40)
+      c.save()
+      const g = c.createLinearGradient(0, r.y, 0, r.y + 260)
+      g.addColorStop(0, pal.water + '66')
+      g.addColorStop(1, pal.water + 'b0')
+      c.fillStyle = g
+      c.fillRect(x0, r.y, x1 - x0, Math.max(0, y1 - r.y))
+      c.restore()
+      for (let row = 0; row < 3; row++) {
+        const pts: Pt[] = []
+        for (let x = Math.floor(x0 / 16) * 16; x <= x1; x += 16) {
+          pts.push(P(x, r.y + row * 18 + Math.sin(x * 0.05 + t * (1.6 + row * 0.5) + row) * (row ? 2 : 3)))
+        }
+        pen.seed(row + 91)
+        pen.stroke(pts, { w: row === 0 ? 2.2 : 1, color: row === 0 ? pal.ink : '#ffffff', alpha: row === 0 ? 0.85 : 0.25, plain: true })
+      }
+    }
+  }
+
+  private letters(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    for (const l of world.freeLetters()) {
+      const y = l.y + Math.sin(t * 2 + l.x) * 5
+      c.save()
+      const g = c.createRadialGradient(l.x, y, 2, l.x, y, 46)
+      g.addColorStop(0, 'rgba(245,217,138,0.8)')
+      g.addColorStop(1, 'rgba(245,217,138,0)')
+      c.fillStyle = g
+      c.fillRect(l.x - 46, y - 46, 92, 92)
+      c.font = `34px ${this.font}`
+      c.textAlign = 'center'
+      c.textBaseline = 'middle'
+      c.lineWidth = 3
+      c.strokeStyle = pal.ink
+      c.strokeText(l.letter, l.x, y)
+      c.fillStyle = pal.glow
+      c.fillText(l.letter, l.x, y)
+      const a = t * 3 + l.x
+      c.fillStyle = '#fff6d8'
+      c.beginPath()
+      c.arc(l.x + Math.cos(a) * 22, y + Math.sin(a) * 12, 2, 0, Math.PI * 2)
+      c.fill()
+      c.restore()
+    }
+  }
+
   private stains(levelId: string): void {
     const c = this.ctx
     const seed = [...levelId].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7)
@@ -280,7 +404,7 @@ export class Renderer {
     for (let i = 0; i < 4; i++) {
       const x = hash(seed + i) * 2400 + 200
       if (x < this.camX - 200 || x > this.camX + this.viewW + 200) continue
-      const y = 60 + hash(seed + i + 10) * 260
+      const y = 60 + hash(seed + i + 10) * (this.worldH - 280)
       const r = 40 + hash(seed + i + 20) * 50
       c.strokeStyle = 'rgba(120,80,35,0.075)'
       c.lineWidth = 5 + hash(seed + i + 30) * 6
@@ -295,16 +419,37 @@ export class Renderer {
 
   private terrain(x: number, y: number, w: number, h: number, i: number, pal: Palette, theme: Theme): void {
     if (x > this.camX + this.viewW + 20 || x + w < this.camX - 20) return
+    if (y > this.camY + VIEW_H + 20) return
     const pen = this.pen
     const c = this.ctx
     pen.seed(i * 1013)
+    const indoors = theme === 'library' || theme === 'archive' || theme === 'flood'
+    if (h <= 24 && indoors) {
+      // A library shelf: a plank on two brackets.
+      pen.rect(x, y, w, Math.min(h, 16), { fill: '#7b5836', fillAlpha: 0.6, w: 2 })
+      for (const bx of [x + 14, x + w - 14]) pen.stroke([P(bx - 8, y + 16), P(bx, y + 34), P(bx + 8, y + 16)], { w: 1.6 })
+      pen.line(x + 4, y + 5, x + w - 4, y + 5, { w: 0.8, alpha: 0.4, plain: true })
+      return
+    }
     if (h <= 20) {
       for (let px = x; px < x + w; px += 18) pen.rect(px + 1, y, 15, h - 2, { fill: '#8a6a43', fillAlpha: 0.4, w: 1.5, plain: true })
       pen.line(x - 4, y - 16, x + w + 4, y - 14, { w: 1.4, alpha: 0.7 })
       for (let px = x; px <= x + w; px += 36) pen.line(px, y - 15, px, y, { w: 1.2, alpha: 0.7, plain: true })
       return
     }
-    const bottom = VIEW_H + 40
+    // Ground runs off the bottom of the page; anything else is a block with a floor of its own.
+    const ground = y + h >= this.worldH - 1
+    const bottom = ground ? Math.min(this.worldH + 40, Math.max(y + h, this.camY + VIEW_H + 40)) : y + h
+    if (!ground) {
+      c.save()
+      c.globalAlpha = 0.72
+      c.fillStyle = pal.paperDark
+      c.fillRect(x, y, w, h)
+      c.restore()
+      pen.hatch(x, y + 4, w, h - 4, { gap: 11, alpha: 0.14 })
+      pen.rect(x, y, w, h, { w: 2.2 })
+      return
+    }
     c.save()
     c.globalAlpha = 0.72
     c.fillStyle = pal.paperDark
@@ -312,7 +457,8 @@ export class Renderer {
     c.restore()
     const vx0 = Math.max(x, this.camX - 20)
     const vx1 = Math.min(x + w, this.camX + this.viewW + 20)
-    pen.hatch(vx0, y + 6, vx1 - vx0, bottom - y, { gap: 11, alpha: 0.14 })
+    const vy0 = Math.max(y + 6, this.camY - 20)
+    pen.hatch(vx0, vy0, vx1 - vx0, Math.max(0, bottom - vy0), { gap: 11, alpha: 0.14 })
     const top: Pt[] = []
     for (let px = x; px < x + w; px += 32) top.push(P(px, y + (hash(px + i) - 0.5) * 2))
     top.push(P(x + w, y))
@@ -386,6 +532,7 @@ export class Renderer {
     const c = this.ctx
     const b = ent.box
     if (b.x > this.camX + this.viewW + 150 || b.x + b.w < this.camX - 150) return
+    if (b.y > this.camY + VIEW_H + 150 || b.y + b.h < this.camY - 150) return
     const art = ART[ent.kind.art]
     c.save()
     if (reveal < 1) {
@@ -411,6 +558,7 @@ export class Renderer {
     for (const ent of world.entities()) {
       const at = world.labelPos(ent)
       if (at.x < this.camX - 80 || at.x > this.camX + this.viewW + 80) continue
+      if (at.y < this.camY - 40 || at.y > this.camY + VIEW_H + 40) continue
       const width = c.measureText(ent.text).width
       if (ent.kind.whisper) {
         this.labels.push({ wordId: ent.wordId, x: ent.box.x, y: ent.box.y, w: ent.box.w, h: ent.box.h })
@@ -529,7 +677,7 @@ export class Renderer {
     const c = this.ctx
     const left = this.camX - 60
     const pts: Pt[] = [P(left, -60)]
-    for (let y = -40; y <= VIEW_H + 60; y += 18) {
+    for (let y = this.camY - 40; y <= this.camY + VIEW_H + 60; y += 18) {
       pts.push(P(front + Math.sin(y * 0.021 + t * 1.7) * 16 + Math.sin(y * 0.07 - t * 3.1) * 7, y))
     }
     pts.push(P(left, VIEW_H + 60))

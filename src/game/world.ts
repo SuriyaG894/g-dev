@@ -1,6 +1,6 @@
 import * as ink from './ink'
 import { LEXICON, SCRIBBLE, WHISPER, tierOf, whisperWidth, type Kind, type Tier } from './lexicon'
-import type { Input, LevelDef, Op, Rect, Vec, WordDef } from './types'
+import type { Input, LetterDef, LevelDef, Op, PoolDef, Rect, Vec, WordDef } from './types'
 
 export const PLAYER_W = 20
 export const PLAYER_H = 38
@@ -27,6 +27,22 @@ export interface Vehicle {
   wait: number
 }
 
+export interface Guard {
+  x: number
+  post: number
+  state: 'post' | 'going' | 'shush' | 'return'
+  timer: number
+  target: string | null
+  facing: 1 | -1
+}
+
+export interface PoolState {
+  def: PoolDef
+  /** Where the water rests before tides (a rising pool's base climbs). */
+  base: number
+  surface: number
+}
+
 export interface Entity {
   uid: number
   wordId: string
@@ -40,7 +56,12 @@ export interface Entity {
   gold: boolean
   light: number
   labelY?: number
+  /** Where the word sits horizontally. */
+  anchorX: number
+  /** Pinned label position for very wide things (the flood and what it becomes). */
+  labelX?: number
   veh?: Vehicle
+  guard?: Guard
 }
 
 export interface Ghost {
@@ -82,6 +103,9 @@ export type WorldEvent =
   | { type: 'diary'; id: string }
   | { type: 'dark'; on: boolean }
   | { type: 'complete'; edits: number }
+  | { type: 'letter'; letter: string; x: number; y: number }
+  | { type: 'lure'; x: number }
+  | { type: 'shush'; x: number; y: number }
 
 interface WordState {
   def: WordDef
@@ -92,6 +116,7 @@ interface WordState {
 interface Snapshot {
   texts: Record<string, string>
   quill: string[]
+  taken: string[]
   edit: boolean
 }
 
@@ -140,6 +165,10 @@ export class World {
   ghosts: Ghost[] = []
   events: WorldEvent[] = []
   readonly reached = new Set<number>()
+  pools: PoolState[] = []
+  /** Lost letters already caught. */
+  readonly taken = new Set<string>()
+  private fullNear: string | null = null
   private uid = 0
 
   constructor(level: LevelDef) {
@@ -150,6 +179,8 @@ export class World {
 
   /** Back to the start of the page (the diary page stays collected). */
   reset(): void {
+    this.pools = (this.level.pools ?? []).map((def) => ({ def, base: def.base, surface: def.base }))
+    this.taken.clear()
     this.words.clear()
     for (const def of this.level.words) {
       const ws = { def, text: def.text } as WordState
@@ -165,6 +196,8 @@ export class World {
     this.reached.clear()
     this.checkpoint = { ...this.level.spawn }
     this.spawnPlayer(this.level.spawn)
+    for (const p of this.pools) p.surface = this.poolTarget(p)
+    for (const ent of this.entities()) this.position(ent, 0)
   }
 
   restart(): void {
@@ -233,10 +266,14 @@ export class World {
       gold: !!def.gold,
       light: tune.light ?? kind.light ?? 0,
       labelY: tune.ly,
+      anchorX: tune.x ?? def.x,
+      labelX: tune.lx ?? (kind.flood ? def.x : kind.scribble ? prev?.labelX : undefined),
     }
-    if (kind.vehicle) {
+    if (kind.vehicle || tune.dx || tune.dy) {
       ent.veh = { dx: tune.dx ?? 0, dy: tune.dy ?? 0, speed: tune.speed ?? 90, s: 0, dir: 1, wait: 1 }
     }
+    if (kind.guardian) ent.guard = { x: ax, post: ax, state: 'post', timer: 0, target: null, facing: -1 }
+    if (this.pools.length) this.position(ent, 0)
     return ent
   }
 
@@ -251,7 +288,7 @@ export class World {
   }
 
   labelPos(ent: Entity): Vec {
-    const cx = ent.box.x + ent.box.w / 2
+    const cx = ent.labelX ?? ent.box.x + ent.box.w / 2
     if (ent.kind.whisper) return { x: cx, y: ent.box.y + ent.box.h / 2 }
     const y = ent.labelY ?? ent.box.y - 16
     return { x: cx, y: Math.max(22, y) }
@@ -268,6 +305,7 @@ export class World {
     for (const ent of this.entities()) {
       if (ent.light > 0) out.push({ ...this.lightPos(ent), r: ent.light })
     }
+    for (const l of this.freeLetters()) out.push({ x: l.x, y: l.y, r: 70 })
     return out
   }
 
@@ -331,7 +369,7 @@ export class World {
   private snapshot(edit: boolean): void {
     const texts: Record<string, string> = {}
     for (const [id, ws] of this.words) texts[id] = ws.text
-    this.history.push({ texts, quill: [...this.quill], edit })
+    this.history.push({ texts, quill: [...this.quill], taken: [...this.taken], edit })
   }
 
   pluckLetter(wordId: string, index: number): boolean {
@@ -387,6 +425,8 @@ export class World {
       }
     }
     this.quill = snap.quill
+    this.taken.clear()
+    for (const id of snap.taken) this.taken.add(id)
     this.events.push({ type: 'undo' })
     return true
   }
@@ -429,7 +469,48 @@ export class World {
     const out: Rect[] = []
     for (const ent of this.entities()) if (ent.kind.hazard) out.push(inset(ent.box, 6, 6))
     for (const w of this.level.water ?? []) out.push(inset(w, 0, 4))
+    for (const w of this.waterRects()) out.push(inset(w, 0, 4))
     return out
+  }
+
+  // ------------------------------------------------------------------ water
+
+  private tides(): number {
+    let sum = 0
+    for (const ent of this.entities()) sum += ent.kind.tide ?? 0
+    return sum
+  }
+
+  private poolTarget(p: PoolState): number {
+    return Math.max(p.def.top, Math.min(p.def.bottom, p.base + this.tides()))
+  }
+
+  poolAt(x: number): PoolState | null {
+    return this.pools.find((p) => x >= p.def.x && x <= p.def.x + p.def.w) ?? null
+  }
+
+  /** The wet part of every pool. */
+  waterRects(): Rect[] {
+    return this.pools
+      .filter((p) => p.surface < p.def.bottom)
+      .map((p) => ({ x: p.def.x, y: p.surface, w: p.def.w, h: p.def.bottom - p.surface }))
+  }
+
+  get rising(): boolean {
+    return this.entities().some((e) => e.kind.flood)
+  }
+
+  private updatePools(dt: number): void {
+    const rising = this.rising
+    for (const p of this.pools) {
+      const r = p.def.rise
+      if (r && rising && this.time > r.delay) p.base -= r.speed * dt
+      p.surface = approach(p.surface, this.poolTarget(p), 90 * dt)
+    }
+  }
+
+  freeLetters(): LetterDef[] {
+    return (this.level.letters ?? []).filter((l) => !this.taken.has(l.id))
   }
 
   get blotFront(): number {
@@ -463,7 +544,9 @@ export class World {
     for (const ent of this.entities()) ent.age += dt
     if (this.complete) return
     this.time += dt
-    this.moveVehicles(dt)
+    this.updatePools(dt)
+    this.updateGuards(dt)
+    this.moveEntities(dt)
 
     if (this.dead) {
       this.deathTimer -= dt
@@ -475,7 +558,7 @@ export class World {
     const p = this.player
     const pb = inset(this.playerBox(), 3, 3)
 
-    if (p.y - PLAYER_H > 580) return this.die()
+    if (p.y - PLAYER_H > (this.level.height ?? 540) + 40) return this.die()
     for (const h of this.hazards()) if (overlap(pb, h)) return this.die()
     if (pb.x < this.blotFront) return this.die()
 
@@ -487,6 +570,8 @@ export class World {
         this.events.push({ type: 'checkpoint', x: cp.x, y: cp.y })
       }
     })
+
+    this.catchLetters()
 
     const d = this.level.diary
     if (d && !this.diaryTaken && (!d.onlyInDark || this.isDark)) {
@@ -511,8 +596,8 @@ export class World {
   }
 
   private respawn(): void {
-    if (this.level.blot) {
-      // The Blot doesn't give second chances: the whole page starts over.
+    if (this.level.blot || this.level.restartOnDeath) {
+      // The Blot and the flood don't give second chances: the whole page starts over.
       this.reset()
     } else {
       this.dead = false
@@ -521,37 +606,151 @@ export class World {
     this.events.push({ type: 'respawn' })
   }
 
-  private moveVehicles(dt: number): void {
+  /** Moves everything that moves: shuttles, floaters, swimmers, the flood, the Librarian. */
+  private moveEntities(dt: number): void {
     const p = this.player
     for (const ent of this.entities()) {
-      const v = ent.veh
-      if (!v) continue
-      const len = Math.hypot(v.dx, v.dy)
-      if (len === 0) continue
       const px = ent.box.x
       const py = ent.box.y
-      if (v.wait > 0) {
-        v.wait -= dt
-      } else {
-        v.s += (v.dir * v.speed * dt) / len
-        if (v.s >= 1) {
-          v.s = 1
-          v.dir = -1
-          v.wait = 1.1
-        } else if (v.s <= 0) {
-          v.s = 0
-          v.dir = 1
-          v.wait = 1.1
-        }
-      }
-      const e = ease(v.s)
-      ent.box.x = ent.home.x + v.dx * e
-      ent.box.y = ent.home.y + v.dy * e
+      this.position(ent, dt)
       if (!this.dead && p.ground === ent) {
         p.x += ent.box.x - px
         p.y += ent.box.y - py
       }
     }
+  }
+
+  private position(ent: Entity, dt: number): void {
+    let ox = 0
+    let oy = 0
+    const v = ent.veh
+    if (v) {
+      const len = Math.hypot(v.dx, v.dy)
+      if (len > 0) {
+        if (v.wait > 0) {
+          v.wait -= dt
+        } else {
+          v.s += (v.dir * v.speed * dt) / len
+          if (v.s >= 1) {
+            v.s = 1
+            v.dir = -1
+            v.wait = 1.1
+          } else if (v.s <= 0) {
+            v.s = 0
+            v.dir = 1
+            v.wait = 1.1
+          }
+        }
+        const e = ease(v.s)
+        ox = v.dx * e
+        oy = v.dy * e
+      }
+    }
+    ent.box.x = ent.home.x + ox
+    ent.box.y = ent.home.y + oy
+    if (ent.guard) ent.box.x = ent.guard.x - ent.box.w / 2
+    const k = ent.kind
+    if (k.flood) {
+      const pool = this.pools[0]
+      if (pool) {
+        ent.box = { x: pool.def.x, y: pool.surface, w: pool.def.w, h: Math.max(0, pool.def.bottom - pool.surface) }
+        ent.home = { ...ent.box }
+      }
+      return
+    }
+    if (k.floats === undefined && k.swims === undefined) return
+    const pool = this.poolAt(ent.box.x + ent.box.w / 2)
+    if (!pool) return
+    if (k.floats !== undefined) ent.box.y = pool.surface - ent.box.h + k.floats
+    else ent.box.y = Math.min(pool.surface + (k.swims ?? 0), pool.def.bottom - ent.box.h)
+  }
+
+  // ------------------------------------------------------------ the Librarian
+
+  private noiseNear(x: number): WordState | null {
+    let best: WordState | null = null
+    for (const ws of this.words.values()) {
+      if (!ws.ent.kind.noise) continue
+      if (!best || Math.abs(ws.ent.box.x - x) < Math.abs(best.ent.box.x - x)) best = ws
+    }
+    return best
+  }
+
+  private updateGuards(dt: number): void {
+    for (const ent of this.entities()) {
+      const g = ent.guard
+      if (!g) continue
+      const move = (tx: number, speed: number): boolean => {
+        const d = tx - g.x
+        if (Math.abs(d) > 1) g.facing = d > 0 ? 1 : -1
+        g.x = approach(g.x, tx, speed * dt)
+        return Math.abs(tx - g.x) < 2
+      }
+      const target = g.target ? this.words.get(g.target) : undefined
+      const noise = this.noiseNear(g.x)
+      switch (g.state) {
+        case 'post':
+          move(g.post + Math.sin(this.time * 0.7) * 30, 40)
+          if (noise) {
+            g.state = 'going'
+            g.target = noise.def.id
+            this.events.push({ type: 'lure', x: g.x })
+          }
+          break
+        case 'going': {
+          if (!target || !target.ent.kind.noise) {
+            g.state = 'return'
+            break
+          }
+          const nx = target.ent.box.x + target.ent.box.w / 2
+          if (move(nx + (g.x >= nx ? 34 : -34), 150)) {
+            g.state = 'shush'
+            g.timer = 2.4
+            this.events.push({ type: 'shush', x: g.x, y: ent.box.y })
+          }
+          break
+        }
+        case 'shush':
+          if (!target || !target.ent.kind.noise) {
+            g.state = 'return'
+            break
+          }
+          g.timer -= dt
+          if (g.timer <= 0) {
+            this.setText(target, 'HUSH')
+            g.state = 'return'
+          }
+          break
+        case 'return':
+          if (noise) {
+            g.state = 'going'
+            g.target = noise.def.id
+            this.events.push({ type: 'lure', x: g.x })
+          } else if (move(g.post, 70)) g.state = 'post'
+          break
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ letters
+
+  private catchLetters(): void {
+    const p = this.player
+    const cx = p.x
+    const cy = p.y - PLAYER_H / 2
+    let near: string | null = null
+    for (const l of this.freeLetters()) {
+      if (Math.hypot(cx - l.x, cy - l.y) > 30) continue
+      near = l.id
+      if (!this.canPlace || this.quill.length >= this.level.quill) {
+        if (this.fullNear !== l.id) this.events.push({ type: 'refused', reason: 'full' })
+        continue
+      }
+      this.taken.add(l.id)
+      this.quill.push(l.letter)
+      this.events.push({ type: 'letter', letter: l.letter, x: l.x, y: l.y })
+    }
+    this.fullNear = near
   }
 
   private physics(dt: number, inp: Input): void {

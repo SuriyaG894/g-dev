@@ -1,5 +1,6 @@
 import type { App } from './app'
 import type { Action } from './input'
+import { LEXICON } from './game/lexicon'
 import type { LevelDef, NoteTrigger } from './game/types'
 import { PLAYER_H, World, type EditRefusal } from './game/world'
 import { Particles } from './render/particles'
@@ -99,6 +100,12 @@ export class Play {
     if (this.level.blot && !this.ended) {
       const gap = this.world.player.x - this.world.blotFront
       app.sound.blotHum(this.world.time > this.level.blot.delay ? 1 - gap / 700 : 0)
+    } else if (this.world.rising && !this.ended) {
+      // The flood hums as it closes in.
+      const pool = this.world.pools[0]
+      app.sound.blotHum(pool ? 1 - (pool.surface - this.world.player.y) / 500 : 0)
+    } else if (this.level.pools?.some((p) => p.rise)) {
+      app.sound.blotHum(0)
     }
   }
 
@@ -121,7 +128,7 @@ export class Play {
 
   private positionNotes(): void {
     const w = this.world
-    this.trigger((n) => ('start' in n && w.time >= n.start) || ('x' in n && w.player.x >= n.x))
+    this.trigger((n) => ('start' in n && w.time >= n.start) || ('x' in n && w.player.x >= n.x) || ('y' in n && w.player.y <= n.y))
   }
 
   private say(key: string, text: string, always = false): void {
@@ -139,6 +146,8 @@ export class Play {
       switch (e.type) {
         case 'transform': {
           app.sound.play(e.tier)
+          if (LEXICON[e.to]?.noise) app.sound.play('bell')
+          if (LEXICON[e.to]?.tide || LEXICON[e.from]?.tide) app.sound.play('water')
           this.particles.splash(e.x, e.y, e.tier === 'scribble' ? 26 : 16, e.tier === 'scribble' ? '#3b1712' : '#1e1914', 220)
           if (e.tier === 'thing') this.particles.sparkle(e.x, e.y + 20, 14)
           if (e.tier === 'scribble') {
@@ -177,14 +186,14 @@ export class Play {
           this.particles.splash(e.x, e.y, 40, '#1e1914', 380)
           this.shake = 10
           this.closePanel()
-          if (!this.level.blot && Math.random() < 0.5) this.say('death' + w.time, pick(EVENT_NOTES.death), true)
+          if (!this.restarts && Math.random() < 0.5) this.say('death' + w.time, pick(EVENT_NOTES.death), true)
           break
         case 'respawn':
-          if (this.level.blot) {
+          if (this.restarts) {
             this.particles.clear()
-            this.say('blotDeath', EVENT_NOTES.blotDeath)
+            this.say('pageDeath', this.level.blot ? EVENT_NOTES.blotDeath : EVENT_NOTES.pageDeath)
           }
-          app.renderer.follow(w, 0, !!this.level.blot)
+          app.renderer.follow(w, 0, this.restarts)
           break
         case 'restart':
           this.particles.clear()
@@ -219,11 +228,29 @@ export class Play {
           this.particles.sparkle(w.level.exit.x, w.level.exit.y - 40, 40)
           window.setTimeout(() => app.levelComplete(this.level, e.edits), 1100)
           break
+        case 'letter':
+          app.sound.play('letter')
+          this.particles.sparkle(e.x, e.y, 16)
+          this.trigger((n) => 'event' in n && n.event === 'letter')
+          break
+        case 'lure':
+          this.trigger((n) => 'event' in n && n.event === 'lure')
+          break
+        case 'shush':
+          app.sound.play('shush')
+          this.shake = 3
+          this.trigger((n) => 'event' in n && n.event === 'shush')
+          break
         case 'discard':
           break
       }
     }
     w.events = []
+  }
+
+  /** Pages where death starts everything over. */
+  private get restarts(): boolean {
+    return !!this.level.blot || !!this.level.restartOnDeath
   }
 
   private refused(reason: EditRefusal): void {

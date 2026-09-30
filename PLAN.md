@@ -49,7 +49,7 @@ A mysterious puzzle adventure that runs in the browser. You play a small ink fig
 | # | Chapter | New power | Theme / signature puzzle |
 |---|---|---|---|
 | 1 | **The Margin Woods** ✅ | Pluck, then Place (page 4) | Tutorial forest. `BEAR→EAR`, `BRIDGE→RIDGE`, `KNIGHT→NIGHT`, `BLOAT→BOAT` + `L→LADDER`, `PLANET→PLANE` |
-| 2 | **The Drowned Library** | Place, with longer words | Flooded shelves. `RAFT`, `OAR`, `BOAT`; turn `EEL` into `HEEL` |
+| 2 | **The Drowned Library** ✅ | Tides, lost letters, gold ink | `TRAIN→RAIN` raises the water, `EELS`+`INK`→`SINK` drains it, `CAGE→PAGE` lift, the Librarian lured by `BRING→RING`, `FLOOD→FLOOR` finale |
 | 3 | **The Clockwork Tower** | Page flipping | Edit earlier pages to change the present. A seed planted on p.3 is a tree on p.9 |
 | 4 | **The Mirror Desert** | Mirror | Anagram mirages. `LEMON→MELON`, `DESSERTS→STRESSED` |
 | 5 | **The City of Ink** | Name | Adjective machinery. `SILENT GUARD`, `BROKEN LOCK`, `TINY DOOR` |
@@ -125,7 +125,7 @@ g-dev/
 | **1. Core engine** | Player movement, word objects, Pluck/Place, lexicon, entity behaviors | A playable test room | ✅ |
 | **2. Chapter 1** | 5 Margin Woods levels, title screen, saving, page-turn transition | **v0.1 public release** | ✅ |
 | **3. Polish** | Ink particles, animations, audio, diary pages, margin notes | It feels like a finished game | 🟡 mostly done early (particles, procedural audio, diary, notes) |
-| **4. Chapters 2–3** | Place, page flipping, the Blot enemy | **v0.2** | next |
+| **4. Chapters 2–3** | Place, page flipping, the Blot enemy | **v0.2** | 🟡 Chapter II done (v0.2); Chapter III next |
 | **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | |
 | **6. Launch polish** | Mobile tuning, accessibility, PWA, share image, analytics | Ready for the public | 🟡 easy-read font, reduced motion, touch controls and share button already in |
 

@@ -51,6 +51,25 @@ export class Bot {
     this.hold(side, (w) => w.player.grounded, 5, 'landing')
   }
 
+  /** Jumps, steering toward x in the air, and waits to land. */
+  jumpTo(x: number, maxSeconds = 3): void {
+    const steer = () => {
+      const d = x - this.w.player.x
+      return Math.abs(d) < 4 ? {} : d > 0 ? { right: true } : { left: true }
+    }
+    this.tick({ ...steer(), jump: true, jumpPressed: true })
+    for (let t = 0; t < 0.4; t += DT) this.tick({ ...steer(), jump: true })
+    for (let t = 0; t < maxSeconds && !this.w.player.grounded; t += DT) this.tick(steer())
+    if (!this.w.player.grounded) throw new Error(`jumpTo(${x}) never landed`)
+    this.hold({}, (w) => Math.abs(w.player.vx) < 1, 2, 'settle')
+  }
+
+  jumpUp(): void {
+    this.tick({ jump: true, jumpPressed: true })
+    for (let t = 0; t < 0.4; t += DT) this.tick({ jump: true })
+    this.hold({}, (w) => w.player.grounded, 3, 'landing')
+  }
+
   climbTo(y: number): void {
     this.hold({ up: true }, (w) => w.player.y <= y + 1, 10, `climb to ${y}`)
   }
