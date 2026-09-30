@@ -31,6 +31,7 @@ export const EVENT_NOTES = {
   echo: 'That grew from something Then. Change it in the past.',
   blocked: 'You can’t be there, in that time. Something is in the way.',
   grew: 'Somewhere, Now, something just changed.',
+  same: 'That changes nothing. Some words look the same in any mirror.',
 }
 
 export const TAB_WHISPERS = ['Come back…', 'The Blot is waiting.', 'Don’t leave me on this page.', 'Are you still reading?']
@@ -75,6 +76,17 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-4',
+    title: 'The diary itself',
+    body: [
+      'Mira liked to read words backwards to make me laugh.',
+      '“Stressed is desserts,” she said, “if you turn it round.”',
+      'I have been turning everything round ever since,',
+      'looking for the side of it that isn’t so heavy.',
+      '— A.',
+    ],
+  },
 ]
 
 export const CHAPTER_ENDS: Record<number, string[]> = {
@@ -95,6 +107,12 @@ export const CHAPTER_ENDS: Record<number, string[]> = {
     'For one long second, Then and Now are the same moment.',
     'The Reader sees two people at a bedside, a book open between them.',
     'Then the hands move on.',
+  ],
+  4: [
+    'The storm stops at the edge of the sand.',
+    'In its eye, two pale lights blink, and look away.',
+    'The desert was only ever a reflection of something.',
+    'Ahead, a city is being written in ink.',
   ],
 }
 

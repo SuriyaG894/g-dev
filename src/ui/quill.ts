@@ -1,20 +1,26 @@
 import * as ink from '../game/ink'
-import { describe } from '../game/lexicon'
 import type { World } from '../game/world'
 import { button, h } from './dom'
 
 export interface QuillActions {
   pluck: (index: number) => void
   place: (gap: number, quillIndex: number) => void
+  swap: (i: number, j: number) => void
+  mirror: () => void
   discard: (quillIndex: number) => void
   close: () => void
 }
+
+type Tool = 'pluck' | 'swap'
 
 /** The editing card: a word, enlarged, with its letters and gaps. */
 export class QuillPanel {
   wordId: string | null = null
   private el: HTMLElement | null = null
   private sel = 0
+  private tool: Tool = 'pluck'
+  /** In swap mode, the first letter picked. */
+  private first: number | null = null
 
   constructor(
     private root: HTMLElement,
@@ -27,12 +33,14 @@ export class QuillPanel {
 
   open(world: World, wordId: string): void {
     this.wordId = wordId
+    this.first = null
     this.sel = Math.min(this.sel, Math.max(0, world.quill.length - 1))
     this.render(world)
   }
 
   close(): void {
     this.wordId = null
+    this.first = null
     this.el?.remove()
     this.el = null
   }
@@ -40,33 +48,58 @@ export class QuillPanel {
   render(world: World): void {
     if (!this.wordId) return
     const ws = world.words.get(this.wordId)
-    if (!ws) return this.close()
+    const ent = world.entityOf(this.wordId)
+    if (!ws || !ent) return this.close()
     const text = ws.text
-    const canPlace = world.canPlace && world.quill.length > 0
+    const mirrors = world.level.powers.includes('mirror')
+    if (!mirrors) this.tool = 'pluck'
+    const swapping = this.tool === 'swap'
+    const canPlace = !swapping && world.canPlace && world.quill.length > 0
     const letter = world.quill[this.sel]
     const preview = h('div', { class: 'qp-preview', text: ' ' })
     const setPreview = (s: string | null) => {
       preview.textContent = s ? `→ ${s}` : ' '
       preview.classList.toggle('on', !!s)
     }
+    const hover = (b: HTMLElement, s: () => string | null) => {
+      b.addEventListener('pointerenter', () => setPreview(s()))
+      b.addEventListener('focus', () => setPreview(s()))
+      b.addEventListener('pointerleave', () => setPreview(null))
+    }
 
-    const row = h('div', { class: 'qp-word', attrs: { role: 'group', 'aria-label': `Letters of ${text}` } })
+    const row = h('div', { class: 'qp-word' + (swapping ? ' swapping' : ''), attrs: { role: 'group', 'aria-label': `Letters of ${text}` } })
     const gap = (i: number) => {
       if (!canPlace || !letter) return null
       const b = button('+', () => this.actions.place(i, this.sel), 'qp-gap', { 'aria-label': `Write ${letter} here` })
-      b.addEventListener('pointerenter', () => setPreview(ink.place(text, i, letter)))
-      b.addEventListener('focus', () => setPreview(ink.place(text, i, letter)))
-      b.addEventListener('pointerleave', () => setPreview(null))
+      hover(b, () => ink.place(text, i, letter))
       return b
     }
     for (let i = 0; i < text.length; i++) {
       const g = gap(i)
       if (g) row.append(g)
-      const b = button(text[i], () => this.actions.pluck(i), 'qp-letter', { 'aria-label': `Pluck ${text[i]}` })
-      if (text.length <= 1) b.disabled = true
-      b.addEventListener('pointerenter', () => setPreview(ink.pluck(text, i).text))
-      b.addEventListener('focus', () => setPreview(ink.pluck(text, i).text))
-      b.addEventListener('pointerleave', () => setPreview(null))
+      const picked = swapping && this.first === i
+      const label = swapping ? (this.first === null ? `Pick ${text[i]} to swap` : `Swap with ${text[i]}`) : `Pluck ${text[i]}`
+      const b = button(
+        text[i],
+        () => {
+          if (!swapping) return this.actions.pluck(i)
+          if (this.first === null) {
+            this.first = i
+            return this.render(world)
+          }
+          if (this.first === i) {
+            this.first = null
+            return this.render(world)
+          }
+          const j = this.first
+          this.first = null
+          this.actions.swap(j, i)
+        },
+        'qp-letter' + (picked ? ' picked' : ''),
+        { 'aria-label': label, 'aria-pressed': String(picked) },
+      )
+      if (!swapping && text.length <= 1) b.disabled = true
+      hover(b, () => (swapping ? (this.first === null || this.first === i ? null : ink.swap(text, this.first, i)) : ink.pluck(text, i).text))
       row.append(b)
     }
     const last = gap(text.length)
@@ -79,35 +112,52 @@ export class QuillPanel {
       e.stopPropagation()
     })
 
+    const tools = mirrors
+      ? h(
+          'div',
+          { class: 'qp-tools', attrs: { role: 'toolbar', 'aria-label': 'Ink tools' } },
+          this.toolButton('✒ Pluck', 'pluck', world),
+          this.toolButton('⇄ Swap', 'swap', world),
+          (() => {
+            const b = button('◐ Mirror', () => this.actions.mirror(), 'qp-tool', { 'aria-label': 'Mirror the whole word' })
+            hover(b, () => ink.mirror(text))
+            return b
+          })(),
+        )
+      : null
+
     let help: string
-    if (!world.canPlace) help = 'Click a letter to pluck it out. Nonsense turns to wild ink.'
+    if (swapping) help = this.first === null ? 'Pick a letter, then another, to trade their places.' : `Now pick the letter to trade with ${text[this.first]}.`
+    else if (!world.canPlace) help = 'Click a letter to pluck it out. Nonsense turns to wild ink.'
     else if (world.quill.length === 0) help = 'Pluck a letter to keep it in your quill.'
     else help = `Pluck a letter, or click a + to write ${letter} into the word.`
 
-    const quillRow = world.canPlace
-      ? h(
-          'div',
-          { class: 'qp-quill' },
-          h('span', { class: 'qp-quill-label', text: `Quill ${world.quill.length}/${world.level.quill}` }),
-          ...world.quill.map((q, i) =>
-            h(
-              'span',
-              { class: 'qp-chip' + (i === this.sel ? ' sel' : '') },
-              button(q, () => {
-                this.sel = i
-                this.render(world)
-              }, 'qp-chip-letter', { 'aria-label': `Use ${q}`, 'aria-pressed': String(i === this.sel) }),
-              button('×', () => this.actions.discard(i), 'qp-chip-x', { 'aria-label': `Shake off ${q}`, title: 'Shake off' }),
+    const quillRow =
+      world.canPlace && !swapping
+        ? h(
+            'div',
+            { class: 'qp-quill' },
+            h('span', { class: 'qp-quill-label', text: `Quill ${world.quill.length}/${world.level.quill}` }),
+            ...world.quill.map((q, i) =>
+              h(
+                'span',
+                { class: 'qp-chip' + (i === this.sel ? ' sel' : '') },
+                button(q, () => {
+                  this.sel = i
+                  this.render(world)
+                }, 'qp-chip-letter', { 'aria-label': `Use ${q}`, 'aria-pressed': String(i === this.sel) }),
+                button('×', () => this.actions.discard(i), 'qp-chip-x', { 'aria-label': `Shake off ${q}`, title: 'Shake off' }),
+              ),
             ),
-          ),
-        )
-      : null
+          )
+        : null
 
     const el = h(
       'div',
       { class: 'quill-panel card', attrs: { role: 'dialog', 'aria-label': `Edit ${text}` } },
       button('×', () => this.actions.close(), 'qp-close', { 'aria-label': 'Close (Esc)' }),
-      h('div', { class: 'qp-desc', text: describe(text) }),
+      h('div', { class: 'qp-desc', text: ent.kind.desc }),
+      tools,
       row,
       preview,
       quillRow,
@@ -116,7 +166,21 @@ export class QuillPanel {
     this.el?.remove()
     this.el = el
     this.root.append(el)
-    const first = el.querySelector<HTMLButtonElement>('.qp-letter:not([disabled])')
-    first?.focus({ preventScroll: true })
+    const focus = el.querySelector<HTMLButtonElement>('.qp-letter.picked') ?? el.querySelector<HTMLButtonElement>('.qp-letter:not([disabled])')
+    focus?.focus({ preventScroll: true })
+  }
+
+  private toolButton(label: string, tool: Tool, world: World): HTMLButtonElement {
+    const on = this.tool === tool
+    return button(
+      label,
+      () => {
+        this.tool = tool
+        this.first = null
+        this.render(world)
+      },
+      'qp-tool' + (on ? ' on' : ''),
+      { 'aria-pressed': String(on) },
+    )
   }
 }

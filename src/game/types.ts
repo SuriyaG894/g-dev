@@ -10,9 +10,9 @@ export interface Rect {
   h: number
 }
 
-export type Power = 'pluck' | 'place'
+export type Power = 'pluck' | 'place' | 'mirror'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert'
 
 /** Then or Now. Pages in the Clockwork Tower exist in both. */
 export type Era = 'past' | 'present'
@@ -49,6 +49,10 @@ export interface WordDef {
   gold?: boolean
   /** A word that exists only Then (its grown-up echo appears Now) or only Now. */
   era?: Era
+  /** A reflection: while it isn't a real word it shimmers harmlessly instead of turning to wild ink. */
+  mirage?: boolean
+  /** For a Sphinx: riddles, answered by making the answer word exist anywhere on the page. */
+  riddles?: { q: string; a: string }[]
   tune?: Record<string, Tune>
 }
 
@@ -58,7 +62,7 @@ export type NoteTrigger =
   /** Fires when the Reader climbs above this height. */
   | { y: number }
   | { word: string }
-  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' | 'past' | 'present' | 'grow' | 'strike' }
+  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' | 'past' | 'present' | 'grow' | 'strike' | 'stopped' }
 
 /**
  * A body of water whose level can change. Tide words (RAIN, SINK…) shift it;
@@ -101,6 +105,8 @@ export interface NoteDef {
 export type Op =
   | { type: 'pluck'; word: string; index: number }
   | { type: 'place'; word: string; index: number; letter: string }
+  | { type: 'mirror'; word: string }
+  | { type: 'swap'; word: string; i: number; j: number }
 
 export interface LevelDef {
   id: string
@@ -133,8 +139,10 @@ export interface LevelDef {
   par: number
   checkpoints?: Vec[]
   dark?: boolean
-  blot?: { x: number; speed: number; delay: number }
-  diary?: { id: string; x: number; y: number; onlyInDark?: boolean; era?: Era }
+  /** A chasing wall: the Blot, or (style 'sand') a sandstorm. A STOP word halts it. */
+  blot?: { x: number; speed: number; delay: number; style?: 'ink' | 'sand' }
+  /** requires: the page only appears once a word with this spelling exists. */
+  diary?: { id: string; x: number; y: number; onlyInDark?: boolean; era?: Era; requires?: string }
   notes: NoteDef[]
   hints: string[]
   /** A known solution, used by the tests. */

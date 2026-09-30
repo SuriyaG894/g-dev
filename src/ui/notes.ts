@@ -3,6 +3,7 @@ import { h } from './dom'
 interface Queued {
   text: string
   sign: boolean
+  by: string
 }
 
 /** The Author's handwritten margin notes, one at a time. */
@@ -19,8 +20,8 @@ export class Notes {
     this.root = root
   }
 
-  say(text: string, opts: { sign?: boolean; urgent?: boolean } = {}): void {
-    const item = { text, sign: opts.sign ?? true }
+  say(text: string, opts: { sign?: boolean; urgent?: boolean; by?: string } = {}): void {
+    const item = { text, sign: opts.sign ?? true, by: opts.by ?? '— the Author' }
     if (opts.urgent) {
       this.queue.unshift(item)
       this.next(true)
@@ -47,7 +48,7 @@ export class Notes {
     const item = this.queue.shift()
     if (!item) return
     const body = h('span', { class: 'note-text' })
-    const el = h('div', { class: 'note', attrs: { role: 'status' } }, body, item.sign ? h('span', { class: 'note-sign', text: '— the Author' }) : null)
+    const el = h('div', { class: 'note', attrs: { role: 'status' } }, body, item.sign ? h('span', { class: 'note-sign', text: item.by }) : null)
     el.addEventListener('click', () => this.dismiss())
     this.root.append(el)
     this.current = el

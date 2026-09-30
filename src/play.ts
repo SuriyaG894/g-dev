@@ -50,6 +50,8 @@ export class Play {
     this.panel = new QuillPanel(app.uiRoot, {
       pluck: (i) => this.edit(() => this.world.pluckLetter(this.panel.wordId!, i)),
       place: (gap, q) => this.edit(() => this.world.placeLetter(this.panel.wordId!, gap, q)),
+      swap: (i, j) => this.edit(() => this.world.swapLetters(this.panel.wordId!, i, j)),
+      mirror: () => this.edit(() => this.world.mirrorWord(this.panel.wordId!)),
       discard: (q) => {
         this.world.discard(q)
         this.app.sound.play('click')
@@ -98,7 +100,7 @@ export class Play {
       debug: this.debug,
     })
     this.hud.update(this.world)
-    if (this.level.blot && !this.ended) {
+    if (this.level.blot && !this.ended && !this.world.halted) {
       const gap = this.world.player.x - this.world.blotFront
       app.sound.blotHum(this.world.time > this.level.blot.delay ? 1 - gap / 700 : 0)
     } else if (this.world.rising && !this.ended) {
@@ -262,6 +264,26 @@ export class Play {
         case 'tick':
           app.sound.play('tick')
           break
+        case 'mirror':
+          app.sound.play('mirror')
+          this.particles.sparkle(e.x, e.y, 20, '#ffffff')
+          break
+        case 'swap':
+          app.sound.play('pluck')
+          this.particles.sparkle(e.x, e.y, 10)
+          break
+        case 'riddle': {
+          app.sound.play('riddle')
+          const riddles = this.level.words.find((d) => d.id === e.wordId)?.riddles ?? []
+          const q = riddles[e.index]?.q ?? '“Correct. You may pass, little reader.”'
+          app.notes.say(q, { urgent: true, by: '— the Sphinx' })
+          break
+        }
+        case 'stopped':
+          app.sound.play('stop')
+          app.sound.stopHum()
+          this.trigger((n) => 'event' in n && n.event === 'stopped')
+          break
         case 'discard':
           break
       }
@@ -287,6 +309,7 @@ export class Play {
       short: EVENT_NOTES.short,
       echo: EVENT_NOTES.echo,
       blocked: EVENT_NOTES.blocked,
+      same: EVENT_NOTES.same,
     }
     const t = text[reason]
     if (t) this.app.notes.say(t, { urgent: true })

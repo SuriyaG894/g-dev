@@ -2,6 +2,7 @@ import type { LevelDef } from '../game/types'
 import { CHAPTER_1 } from './chapter1'
 import { CHAPTER_2 } from './chapter2'
 import { CHAPTER_3 } from './chapter3'
+import { CHAPTER_4 } from './chapter4'
 
 export interface ChapterInfo {
   number: number
@@ -33,11 +34,17 @@ export const CHAPTERS: ChapterInfo[] = [
     blurb: 'A tower of stopped clocks, where every page exists twice: as it was, and as it is. Plant something Then, and it grows up by Now.',
     levels: CHAPTER_3,
   },
+  {
+    number: 4,
+    title: 'The Mirror Desert',
+    power: 'Mirror & Swap',
+    blurb: 'A desert of reflections, where nothing is quite the right way round, and a Sphinx waits for the right words.',
+    levels: CHAPTER_4,
+  },
 ]
 
 /** Chapters still being written, shown locked in the book. */
 export const UPCOMING = [
-  { number: 4, title: 'The Mirror Desert', power: 'Mirror' },
   { number: 5, title: 'The City of Ink', power: 'Name' },
   { number: 6, title: 'The Folded Sea', power: 'Fold' },
   { number: 7, title: 'The Blank', power: 'Every power' },

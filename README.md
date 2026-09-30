@@ -4,12 +4,13 @@
 
 A mysterious puzzle adventure that runs in the browser. You're a small ink figure trapped in an unfinished storybook, and you change the world by editing its words. Pluck the **B** out of **BRIDGE** and it becomes a **RIDGE** you can climb. **FIRE** becomes a **FIR** tree. Put a stray **L** in front of **ADDER** and you have a **LADDER**.
 
-**v0.3 contains three chapters, 15 pages in all:**
+**v0.4 contains four chapters, 20 pages in all:**
 - **Chapter I, *The Margin Woods*:** pluck and place letters; darkness; the first appearance of the Blot.
 - **Chapter II, *The Drowned Library*:** tides that raise and lower the water, things that float and swim, lost letters to catch, gold words nobody can change, the Librarian (a guardian you can only distract), and a vertical escape from a rising FLOOD.
 - **Chapter III, *The Clockwork Tower*:** **Then & Now**. Press **F** to turn time. Every page exists twice; bridges stand Then and are gone Now, iron rusts, and what you change in the past grows up (SEED → TREE, CUB → BEAR, SPARK → FIRE). At *Midnight*, the clock turns time by itself.
+- **Chapter IV, *The Mirror Desert*:** **Mirror & Swap**. ◐ Mirror reverses a word (RATS → STAR, WOLF → FLOW), ⇄ Swap trades two letters (SALT → SLAT, PALM ↔ LAMP). Backwards *mirages* are only reflections until you turn them round, a Sphinx asks riddles you answer by making words, and a sandstorm chases you, unless you read the signs.
 
-Three hidden diary pages continue the Author's story.
+Four hidden diary pages continue the Author's story.
 
 ## Play locally
 
@@ -64,7 +65,7 @@ You can also deploy from the terminal: `npm i -g vercel && vercel --prod`.
 |---|---|
 | Rules, physics, edits (no DOM, fully testable) | `src/game/world.ts`, `src/game/ink.ts` |
 | Words and what they become | `src/game/lexicon.ts` |
-| Pages | `src/levels/chapter1.ts` … `chapter3.ts` |
+| Pages | `src/levels/chapter1.ts` … `chapter4.ts` |
 | Hand-drawn renderer (Canvas 2D, wobbly "boiling" ink lines) | `src/render/` |
 | Procedural sound and music (Web Audio, no audio files) | `src/audio/sound.ts` |
 | Menus, HUD, quill panel, margin notes | `src/ui/` |

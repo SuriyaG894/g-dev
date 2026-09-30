@@ -184,6 +184,7 @@ export class Renderer {
     pen.boil = 0
     if (lvl.theme === 'library' || lvl.theme === 'archive' || lvl.theme === 'flood') this.shelves(lvl.theme, pal, st.t)
     else if (lvl.theme === 'clock') this.clockworks(world, pal, st.t)
+    else if (lvl.theme === 'desert') this.dunes(world, pal, st.t)
     else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
@@ -211,7 +212,7 @@ export class Renderer {
 
     if (!world.dead) this.player(world, pal, st.t)
     st.particles.draw(c, this.font)
-    if (lvl.blot) this.blot(world.blotFront, pal, st.t)
+    if (lvl.blot) this.blot(world.blotFront, lvl.blot.style === 'sand' ? { ...pal, blot: '#b8894a' } : pal, st.t, lvl.blot.style === 'sand')
 
     this.timeWash(world, pal, st.t, st.reduced)
 
@@ -386,6 +387,45 @@ export class Renderer {
     c.strokeStyle = pal.accent
     c.lineWidth = 1.6
     c.strokeRect(x, y, w, Math.min(h, 40))
+    c.restore()
+  }
+
+  /** Dunes, heat haze, and a sun (or, at night, a moon). */
+  private dunes(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    const dark = world.isDark
+    c.save()
+    const sx = this.camX + this.viewW * 0.78
+    c.globalAlpha = dark ? 0.35 : 0.3
+    c.fillStyle = dark ? '#f1ead2' : '#e9a24a'
+    c.beginPath()
+    c.arc(sx, this.camY + 100, dark ? 30 : 48, 0, Math.PI * 2)
+    c.fill()
+    for (let layer = 0; layer < 3; layer++) {
+      const par = 0.2 + layer * 0.15
+      const left = this.camX * par
+      const base = 300 + layer * 55
+      c.globalAlpha = 0.1 + layer * 0.05
+      c.fillStyle = layer === 2 ? pal.paperDark : '#caa068'
+      c.beginPath()
+      c.moveTo(this.camX - 20, this.camY + VIEW_H + 20)
+      for (let px = Math.floor((left - 40) / 30) * 30; px <= left + this.viewW + 60; px += 30) {
+        c.lineTo(this.camX + (px - left), base + Math.sin(px * 0.006 + layer * 2) * 40 + Math.sin(px * 0.017 + layer) * 14)
+      }
+      c.lineTo(this.camX + this.viewW + 20, this.camY + VIEW_H + 20)
+      c.closePath()
+      c.fill()
+    }
+    if (!dark) {
+      c.globalAlpha = 0.12
+      c.strokeStyle = '#ffffff'
+      for (let i = 0; i < 4; i++) {
+        const y = 250 + i * 40
+        c.beginPath()
+        for (let x = this.camX; x <= this.camX + this.viewW; x += 12) c.lineTo(x, y + Math.sin(x * 0.03 + t * 3 + i) * 3)
+        c.stroke()
+      }
+    }
     c.restore()
   }
 
@@ -623,6 +663,12 @@ export class Renderer {
     pen.line(x, y, x - 1, bottom, { w: 2 })
     pen.line(x + w, y, x + w + 1, bottom, { w: 2 })
     if (theme === 'blot') return
+    if (theme === 'desert') {
+      for (let px = Math.ceil(vx0 / 40) * 40; px < vx1 - 10; px += 40) {
+        pen.ellipse(px + hash(px) * 20, y + 14 + hash(px + 1) * 30, 14, 3, { from: Math.PI, to: Math.PI * 2, w: 1, alpha: 0.35, plain: true })
+      }
+      return
+    }
     for (let px = Math.ceil(vx0 / 22) * 22; px < vx1 - 4; px += 22) {
       if (hash(px) < 0.35) continue
       const gx = px + hash(px + 1) * 8
@@ -830,7 +876,7 @@ export class Renderer {
 
   // ------------------------------------------------------------------- blot
 
-  private blot(front: number, pal: Palette, t: number): void {
+  private blot(front: number, pal: Palette, t: number, sand = false): void {
     if (front < this.camX - 120) return
     const c = this.ctx
     const left = this.camX - 60
@@ -852,6 +898,16 @@ export class Renderer {
       c.beginPath()
       c.arc(front + 14 + Math.sin(t * 1.4 + i) * 12, y, Math.max(3, r), 0, Math.PI * 2)
       c.fill()
+    }
+    if (sand) {
+      // Grit, whipping ahead of the storm.
+      for (let i = 0; i < 40; i++) {
+        const y = this.camY + hash(i) * VIEW_H
+        const x = front + ((t * 400 + hash(i + 9) * 300) % 260) - 40
+        c.globalAlpha = 0.5
+        c.fillRect(x, y + Math.sin(t * 5 + i) * 6, 6 + hash(i + 3) * 10, 1.5)
+      }
+      c.globalAlpha = 1
     }
     // Something inside is watching.
     const blink = Math.sin(t * 0.7) > 0.96 ? 0.15 : 1
@@ -898,7 +954,8 @@ export class Renderer {
   private diary(world: World, t: number): void {
     const d = world.level.diary
     if (!d || world.diaryTaken) return
-    const visible = (!d.onlyInDark || world.isDark) && (!d.era || d.era === world.era)
+    if (d.requires && !world.diaryVisible) return
+    const visible = world.diaryVisible
     const c = this.ctx
     const y = d.y + Math.sin(t * 1.8) * 5
     c.save()

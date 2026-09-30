@@ -17,7 +17,7 @@ describe('level data', () => {
   for (const level of ALL_LEVELS) {
     describe(level.id, () => {
       it('starts with real words', () => {
-        for (const w of level.words) expect(tierOf(w.text), w.text).not.toBe('scribble')
+        for (const w of level.words) if (!w.mirage) expect(tierOf(w.text), w.text).not.toBe('scribble')
       })
 
       it('has a spelling-valid solution whose length is par', () => {
@@ -31,6 +31,10 @@ describe('level data', () => {
             const r = ink.pluck(text, op.index)
             texts.set(op.word, r.text)
             quill.push(r.letter)
+          } else if (op.type === 'mirror') {
+            texts.set(op.word, ink.mirror(text))
+          } else if (op.type === 'swap') {
+            texts.set(op.word, ink.swap(text, op.i, op.j))
           } else {
             const i = quill.indexOf(op.letter)
             expect(i, `letter ${op.letter} in quill`).toBeGreaterThanOrEqual(0)
@@ -48,7 +52,7 @@ describe('level data', () => {
       })
 
       it('only uses powers the page allows', () => {
-        for (const op of level.solution) expect(level.powers).toContain(op.type)
+        for (const op of level.solution) expect(level.powers).toContain(op.type === 'swap' ? 'mirror' : op.type)
       })
 
       it('has tuned spellings that exist in the lexicon', () => {

@@ -42,6 +42,12 @@ export interface Kind {
   grows?: string
   /** A ticking clock: while it exists, time flips on its own (on pages that allow it). */
   clock?: boolean
+  /** A reflection of a real thing, not yet turned the right way round. */
+  mirage?: boolean
+  /** A riddling guardian, solid until its riddles are answered. */
+  sphinx?: boolean
+  /** Halts whatever is chasing you. */
+  stops?: boolean
 }
 
 export const LEXICON: Record<string, Kind> = {
@@ -137,6 +143,36 @@ export const LEXICON: Record<string, Kind> = {
   STALK: { art: 'stem', w: 40, h: 380, climb: true, desc: 'A beanstalk. Up and up.' },
   CLOCK: { art: 'clock', w: 60, h: 90, clock: true, desc: 'A clock. It strikes, and time turns.' },
   LOCK: { art: 'padlock', w: 40, h: 44, desc: 'A lock. Time holds still.' },
+
+  // Chapter IV: The Mirror Desert
+  RATS: { art: 'rats', w: 140, h: 30, hazard: true, desc: 'A swarm of rats.' },
+  STAR: { art: 'star', w: 70, h: 24, platform: true, light: 180, desc: 'A fallen star, low enough to stand on.' },
+  SALT: { art: 'salt', w: 60, h: 30, desc: 'A heap of salt.' },
+  SLAT: { art: 'slat', w: 200, h: 16, platform: true, desc: 'A long wooden slat.' },
+  LEMON: { art: 'lemon', w: 30, h: 24, solid: true, desc: 'A lemon. Small and sour.' },
+  MELON: { art: 'melon', w: 80, h: 70, solid: true, desc: 'A melon. Enormous.' },
+  DAIRY: { art: 'churn', w: 36, h: 50, desc: 'A milk churn, far from any cow.' },
+  DIARY: { art: 'diarybook', w: 40, h: 30, desc: 'A diary! The Author’s.' },
+  PALM: { art: 'palm', w: 60, h: 280, climb: true, desc: 'A palm tree. Climbable.' },
+  WOLF: { art: 'wolf', w: 90, h: 70, hazard: true, desc: 'A wolf, prowling.' },
+  FLOW: { art: 'trickle', w: 120, h: 14, desc: 'A trickle of water, flowing over the sand.' },
+  SPHINX: { art: 'sphinx', w: 170, h: 150, solid: true, sphinx: true, desc: 'The Sphinx. It asks, and it waits.' },
+  EMIT: { art: 'vent', w: 50, h: 40, desc: 'A vent, emitting steam.' },
+  TIME: { art: 'hourglass', w: 36, h: 56, desc: 'An hourglass. Time.' },
+  ICON: { art: 'tablet', w: 50, h: 64, desc: 'A painted icon on a stone.' },
+  COIN: { art: 'coin', w: 30, h: 30, desc: 'A gold coin. Heads, tails, no body.' },
+  SNAKE: { art: 'adder', w: 70, h: 22, hazard: true, desc: 'A desert snake.' },
+  STRAW: { art: 'bale', w: 90, h: 130, solid: true, desc: 'A bale of straw, too tall to climb.' },
+  SPOT: { art: 'shade', w: 80, h: 10, desc: 'A spot of shade.' },
+  STOP: { art: 'stopsign', w: 40, h: 90, stops: true, desc: 'STOP. Even storms can read.' },
+}
+
+export const MIRAGE: Kind = {
+  art: 'mirage',
+  w: 0,
+  h: 0,
+  mirage: true,
+  desc: 'A mirage. It is only a reflection, written the wrong way round.',
 }
 
 export const WHISPER: Kind = {

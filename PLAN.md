@@ -51,7 +51,7 @@ A mysterious puzzle adventure that runs in the browser. You play a small ink fig
 | 1 | **The Margin Woods** ✅ | Pluck, then Place (page 4) | Tutorial forest. `BEAR→EAR`, `BRIDGE→RIDGE`, `KNIGHT→NIGHT`, `BLOAT→BOAT` + `L→LADDER`, `PLANET→PLANE` |
 | 2 | **The Drowned Library** ✅ | Tides, lost letters, gold ink | `TRAIN→RAIN` raises the water, `EELS`+`INK`→`SINK` drains it, `CAGE→PAGE` lift, the Librarian lured by `BRING→RING`, `FLOOD→FLOOR` finale |
 | 3 | **The Clockwork Tower** ✅ | Then & Now (time flipping) | Every page exists Then and Now. Change the past and it grows up: `SPEED→SEED` (a TREE Now), `CUB+E→CUBE` (no BEAR), `SPARK→PARK` (no FIRE), `DRIP→RIP` (no POND); *Midnight* flips time on its own |
-| 4 | **The Mirror Desert** | Mirror | Anagram mirages. `LEMON→MELON`, `DESSERTS→STRESSED` |
+| 4 | **The Mirror Desert** ✅ | Mirror & Swap | Backwards mirages (`EGDIRB→BRIDGE`), `LEMON→MELON`, `PALM↔LAMP`, a riddling Sphinx (`EMIT→TIME`, `ICON→COIN`), a sandstorm you can `STOP` |
 | 5 | **The City of Ink** | Name | Adjective machinery. `SILENT GUARD`, `BROKEN LOCK`, `TINY DOOR` |
 | 6 | **The Folded Sea** | Fold | Two-page puzzles. Fold the ocean onto the sky |
 | 7 | **The Blank** | All powers | The Blot chase, then writing the ending |
@@ -126,7 +126,7 @@ g-dev/
 | **2. Chapter 1** | 5 Margin Woods levels, title screen, saving, page-turn transition | **v0.1 public release** | ✅ |
 | **3. Polish** | Ink particles, animations, audio, diary pages, margin notes | It feels like a finished game | 🟡 mostly done early (particles, procedural audio, diary, notes) |
 | **4. Chapters 2–3** | Place, page flipping, the Blot enemy | **v0.2** | ✅ Chapter II (v0.2) and Chapter III (v0.3) done |
-| **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | |
+| **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | 🟡 Chapter IV done (v0.4); Chapter V next |
 | **6. Launch polish** | Mobile tuning, accessibility, PWA, share image, analytics | Ready for the public | 🟡 easy-read font, reduced motion, touch controls and share button already in |
 
 ### Accessibility

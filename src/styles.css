@@ -779,6 +779,46 @@ h3 {
   color: var(--paper);
 }
 
+.qp-letter.picked {
+  background: var(--gold);
+  color: var(--paper);
+  transform: translateY(-8px);
+}
+
+.qp-word.swapping .qp-letter {
+  border-style: dashed;
+}
+
+.qp-tools {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+}
+
+.qp-tool {
+  font: 16px var(--f-title);
+  color: var(--ink);
+  background: rgba(251, 245, 228, 0.7);
+  border: 1.5px solid var(--ink);
+  border-radius: 16px;
+  padding: 6px 14px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.qp-tool.on,
+.qp-tool:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.qp-tool:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .qp-letter:disabled {
   opacity: 0.5;
   cursor: not-allowed;

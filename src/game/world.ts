@@ -1,5 +1,5 @@
 import * as ink from './ink'
-import { LEXICON, SCRIBBLE, WHISPER, tierOf, whisperWidth, type Kind, type Tier } from './lexicon'
+import { LEXICON, MIRAGE, SCRIBBLE, WHISPER, tierOf, whisperWidth, type Kind, type Tier } from './lexicon'
 import type { Era, Input, LetterDef, LevelDef, Op, PoolDef, Rect, TerrainRect, Vec, WordDef } from './types'
 
 export const PLAYER_W = 20
@@ -66,6 +66,10 @@ export interface Entity {
   era: Era | 'both'
   /** The grown-up form, Now, of a word that lives Then. It can't be edited directly. */
   echo?: boolean
+  /** For a mirage: the real thing it is a reflection of. */
+  mirrorOf?: string
+  /** A Sphinx whose riddles are all answered lies down, and no longer blocks the way. */
+  resting?: boolean
 }
 
 export interface Ghost {
@@ -89,7 +93,7 @@ export interface Player {
   air: number
 }
 
-export type EditRefusal = 'far' | 'dark' | 'gold' | 'full' | 'short' | 'power' | 'busy' | 'echo' | 'blocked'
+export type EditRefusal = 'far' | 'dark' | 'gold' | 'full' | 'short' | 'power' | 'busy' | 'echo' | 'blocked' | 'same'
 
 export type WorldEvent =
   | { type: 'transform'; wordId: string; from: string; to: string; tier: Tier; x: number; y: number }
@@ -113,6 +117,10 @@ export type WorldEvent =
   | { type: 'flip'; era: Era; forced: boolean }
   | { type: 'grow'; from: string; to: string }
   | { type: 'tick' }
+  | { type: 'mirror'; x: number; y: number }
+  | { type: 'swap'; x: number; y: number }
+  | { type: 'riddle'; wordId: string; index: number }
+  | { type: 'stopped' }
 
 interface WordState {
   def: WordDef
@@ -191,6 +199,12 @@ export class World {
   /** Seconds since the clock last struck. */
   clockTime = 0
   private warned = false
+  /** How far the chasing wall has come. */
+  blotX = -Infinity
+  private stoppedOnce = false
+  /** Riddles answered, per Sphinx. */
+  private riddles = new Map<string, number>()
+  private asked = new Set<string>()
   private uid = 0
 
   constructor(level: LevelDef) {
@@ -201,6 +215,10 @@ export class World {
 
   /** Back to the start of the page (the diary page stays collected). */
   reset(): void {
+    this.blotX = this.level.blot ? this.level.blot.x : -Infinity
+    this.stoppedOnce = false
+    this.riddles.clear()
+    this.asked.clear()
     this.era = this.level.eras?.start ?? 'present'
     this.clockTime = 0
     this.warned = false
@@ -267,6 +285,21 @@ export class World {
       kind = WHISPER
       w = whisperWidth(text)
       h = WHISPER.h
+    } else if (def.mirage) {
+      // A mirage keeps the shape of the thing it reflects, but nothing about it is real.
+      kind = MIRAGE
+      const target = ink.mirror(text)
+      const real = LEXICON[target]
+      const tt = def.tune?.[target] ?? {}
+      if (real) {
+        w = tt.w ?? real.w
+        h = tt.h ?? real.h
+        ax = tt.x ?? def.x
+        ay = tt.y ?? def.y
+      } else {
+        w = whisperWidth(text)
+        h = 30
+      }
     } else {
       // Nonsense keeps the shape of what it was, but turns to wild ink.
       kind = SCRIBBLE
@@ -292,7 +325,7 @@ export class World {
       gold: !!def.gold,
       era: def.era ?? 'both',
       light: tune.light ?? kind.light ?? 0,
-      labelY: tune.ly,
+      labelY: tune.ly ?? (kind.scribble || kind.mirage ? prev?.labelY : undefined),
       anchorX: tune.x ?? def.x,
       labelX: tune.lx ?? (kind.flood ? def.x : kind.scribble ? prev?.labelX : undefined),
     }
@@ -300,6 +333,8 @@ export class World {
       ent.veh = { dx: tune.dx ?? 0, dy: tune.dy ?? 0, speed: tune.speed ?? 90, s: 0, dir: 1, wait: 1 }
     }
     if (kind.guardian) ent.guard = { x: ax, post: ax, state: 'post', timer: 0, target: null, facing: -1 }
+    if (kind.mirage) ent.mirrorOf = ink.mirror(text)
+    if (kind.sphinx && (this.riddles.get(def.id) ?? 0) >= (def.riddles?.length ?? 0) && def.riddles?.length) ent.resting = true
     if (this.pools.length) this.position(ent, 0)
     return ent
   }
@@ -488,6 +523,35 @@ export class World {
     return true
   }
 
+  /** Holds the whole word up to a mirror (one ink). */
+  mirrorWord(wordId: string): boolean {
+    if (!this.level.powers.includes('mirror')) return this.refuse('power')
+    const why = this.canEdit(wordId)
+    if (why) return this.refuse(why)
+    const ws = this.words.get(wordId)!
+    const next = ink.mirror(ws.text)
+    if (next === ws.text) return this.refuse('same')
+    this.snapshot(true)
+    const at = this.labelPos(ws.ent)
+    this.events.push({ type: 'mirror', x: at.x, y: at.y })
+    this.setText(ws, next)
+    return true
+  }
+
+  /** Trades two letters (one ink). */
+  swapLetters(wordId: string, i: number, j: number): boolean {
+    if (!this.level.powers.includes('mirror')) return this.refuse('power')
+    const why = this.canEdit(wordId)
+    if (why) return this.refuse(why)
+    const ws = this.words.get(wordId)!
+    if (i === j || ws.text[i] === ws.text[j]) return this.refuse('same')
+    this.snapshot(true)
+    const at = this.labelPos(ws.ent)
+    this.events.push({ type: 'swap', x: at.x, y: at.y })
+    this.setText(ws, ink.swap(ws.text, i, j))
+    return true
+  }
+
   discard(quillIndex: number): void {
     const letter = this.quill[quillIndex]
     if (!letter || this.complete) return
@@ -518,6 +582,8 @@ export class World {
   /** Applies a solution step (used by tests and the dev hint tool). */
   apply(op: Op): boolean {
     if (op.type === 'pluck') return this.pluckLetter(op.word, op.index)
+    if (op.type === 'mirror') return this.mirrorWord(op.word)
+    if (op.type === 'swap') return this.swapLetters(op.word, op.i, op.j)
     return this.placeLetter(op.word, op.index, this.quill.indexOf(op.letter))
   }
 
@@ -530,7 +596,7 @@ export class World {
 
   solids(): Solid[] {
     const out: Solid[] = this.terrain().map((r) => ({ r, ent: null }))
-    for (const ent of this.entities()) if (ent.kind.solid) out.push({ r: ent.box, ent })
+    for (const ent of this.entities()) if (ent.kind.solid && !ent.resting) out.push({ r: ent.box, ent })
     return out
   }
 
@@ -593,6 +659,16 @@ export class World {
     }
   }
 
+  /** Can the hidden diary page be seen (and caught) right now? */
+  get diaryVisible(): boolean {
+    const d = this.level.diary
+    if (!d) return false
+    if (d.onlyInDark && !this.isDark) return false
+    if (d.era && d.era !== this.era) return false
+    if (d.requires && !this.entities().some((e) => e.text === d.requires)) return false
+    return true
+  }
+
   freeLetters(): LetterDef[] {
     return (this.level.letters ?? []).filter((l) => !this.taken.has(l.id) && (!l.era || l.era === this.era))
   }
@@ -651,9 +727,55 @@ export class World {
   }
 
   get blotFront(): number {
+    return this.blotX
+  }
+
+  /** Is something on the page telling the storm to STOP? */
+  get halted(): boolean {
+    return this.entities().some((e) => e.kind.stops)
+  }
+
+  private updateBlot(dt: number): void {
     const b = this.level.blot
-    if (!b) return -Infinity
-    return b.x + Math.max(0, this.time - b.delay) * b.speed
+    if (!b || this.time <= b.delay) return
+    if (this.halted) {
+      if (!this.stoppedOnce) {
+        this.stoppedOnce = true
+        this.events.push({ type: 'stopped' })
+      }
+      return
+    }
+    this.blotX += b.speed * dt
+  }
+
+  /** The Sphinx asks when you come near, and moves when the answer exists. */
+  private updateSphinxes(): void {
+    const p = this.player
+    const spelled = new Set([...this.words.values()].map((w) => this.activeOf(w)?.text).filter(Boolean))
+    for (const ws of this.words.values()) {
+      const ent = this.activeOf(ws)
+      const riddles = ws.def.riddles
+      if (!ent || !ent.kind.sphinx || !riddles?.length) continue
+      const id = ws.def.id
+      if (!this.asked.has(id)) {
+        if (Math.abs(p.x - (ent.box.x + ent.box.w / 2)) < 560) {
+          this.asked.add(id)
+          this.events.push({ type: 'riddle', wordId: id, index: 0 })
+        }
+        continue
+      }
+      let i = this.riddles.get(id) ?? 0
+      while (i < riddles.length && spelled.has(riddles[i].a)) {
+        i++
+        this.riddles.set(id, i)
+        this.events.push({ type: 'riddle', wordId: id, index: i })
+      }
+      if (i >= riddles.length) ent.resting = true
+    }
+  }
+
+  riddlesSolved(wordId: string): number {
+    return this.riddles.get(wordId) ?? 0
   }
 
   private zoneAt(test: (k: Kind) => boolean | undefined): Rect | null {
@@ -682,6 +804,8 @@ export class World {
     if (this.complete) return
     this.time += dt
     this.updateClock(dt)
+    this.updateBlot(dt)
+    this.updateSphinxes()
     this.updatePools(dt)
     this.updateGuards(dt)
     this.moveEntities(dt)
@@ -712,7 +836,7 @@ export class World {
     this.catchLetters()
 
     const d = this.level.diary
-    if (d && !this.diaryTaken && (!d.onlyInDark || this.isDark) && (!d.era || d.era === this.era)) {
+    if (d && !this.diaryTaken && this.diaryVisible) {
       if (Math.hypot(p.x - d.x, p.y - PLAYER_H / 2 - d.y) < 36) {
         this.diaryTaken = true
         this.events.push({ type: 'diary', id: d.id })
