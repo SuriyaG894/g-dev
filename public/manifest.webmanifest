@@ -1,0 +1,11 @@
+{
+  "name": "The Last Page",
+  "short_name": "Last Page",
+  "description": "A mysterious puzzle adventure inside an unfinished storybook.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#f1e6cf",
+  "theme_color": "#1e1914",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

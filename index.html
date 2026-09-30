@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>The Last Page</title>
+    <meta name="description" content="A mysterious puzzle adventure inside an unfinished storybook. Pluck letters out of words to change the world. BRIDGE becomes RIDGE, FIRE becomes FIR. Free to play in your browser." />
+    <meta name="theme-color" content="#1e1914" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:title" content="The Last Page" />
+    <meta property="og:description" content="Every world is written. Every word can be unwritten. A browser puzzle adventure inside an unfinished storybook." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <canvas id="stage" tabindex="0" aria-label="The Last Page: game world"></canvas>
+    <div id="hud"></div>
+    <div id="ui"></div>
+    <div id="notes" aria-live="polite"></div>
+    <div id="loading"><span>opening the book…</span></div>
+    <div class="rotate-hint">Turn your device sideways for the best view</div>
+    <noscript>The Last Page needs JavaScript to turn its pages.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

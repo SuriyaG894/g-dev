@@ -1,0 +1,28 @@
+{
+  "name": "the-last-page",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A mysterious word-bending puzzle adventure inside an unfinished storybook.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "playwright-core": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "wordlist-english": "^1.2.1"
+  },
+  "dependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/caveat": "^5.3.0",
+    "@fontsource/im-fell-english": "^5.3.0",
+    "@fontsource/im-fell-english-sc": "^5.3.0"
+  }
+}
