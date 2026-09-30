@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import * as ink from '../src/game/ink'
 import { LEXICON, tierOf } from '../src/game/lexicon'
-import { World } from '../src/game/world'
+import { World, grow } from '../src/game/world'
 import { CHAPTERS, ALL_LEVELS } from '../src/levels'
 import { loadDictionary } from './helpers'
 
@@ -39,8 +39,12 @@ describe('level data', () => {
           }
           if (level.powers.includes('place')) expect(quill.length).toBeLessThanOrEqual(level.quill)
         }
-        // Every page ends with at least one new shaped thing (the whole point of editing).
-        expect([...texts.values()].some((t, i) => t !== level.words[i].text && tierOf(t) === 'thing')).toBe(true)
+        // Every page ends with something new: a shaped thing, or a different future (what it grows into).
+        const changed = [...texts.values()].some((t, i) => {
+          const was = level.words[i].text
+          return t !== was && (tierOf(t) === 'thing' || grow(t) !== grow(was))
+        })
+        expect(changed).toBe(true)
       })
 
       it('only uses powers the page allows', () => {

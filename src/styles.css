@@ -652,6 +652,40 @@ h3 {
   transform: rotate(-8deg);
 }
 
+.flip-btn {
+  height: 44px;
+  padding: 0 14px;
+  font: 17px var(--f-title);
+  color: var(--paper);
+  background: #a0772b;
+  border: 2px solid var(--ink);
+  border-radius: 22px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+.flip-btn:hover {
+  transform: rotate(-4deg);
+}
+
+.flip-btn.past {
+  background: #6d4a1e;
+}
+
+.flip-btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.tb-flip {
+  width: 58px;
+  height: 58px;
+  background: rgba(160, 119, 43, 0.55);
+  color: var(--paper);
+}
+
 .quill-slots {
   display: flex;
   align-items: center;

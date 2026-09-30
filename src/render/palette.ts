@@ -34,4 +34,5 @@ export const PALETTES: Record<Theme, Palette> = {
   library: { ...base, accent: '#2d5f73', paper: '#ebe3cf', paperDark: '#d6c8a7', water: '#1f4f63', leaf: '#557a5a' },
   archive: { ...base, accent: '#6a4f86', paper: '#e4d9c2', paperDark: '#cfbf9d', water: '#223c52' },
   flood: { ...base, accent: '#1f5a70', paper: '#e7ddc7', paperDark: '#d2c3a1', water: '#184a60' },
+  clock: { ...base, accent: '#a0772b', paper: '#ede2c7', paperDark: '#d8c6a0', leaf: '#6b8a4f' },
 }

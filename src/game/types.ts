@@ -12,7 +12,15 @@ export interface Rect {
 
 export type Power = 'pluck' | 'place'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock'
+
+/** Then or Now. Pages in the Clockwork Tower exist in both. */
+export type Era = 'past' | 'present'
+
+/** Ground; with an era it only exists Then or Now. */
+export interface TerrainRect extends Rect {
+  era?: Era
+}
 
 /** Per-word overrides, keyed by the word's current spelling (e.g. tune.RIDGE). */
 export interface Tune {
@@ -39,6 +47,8 @@ export interface WordDef {
   y: number
   /** Gold ink: the Author's permanent words. They cannot be edited. */
   gold?: boolean
+  /** A word that exists only Then (its grown-up echo appears Now) or only Now. */
+  era?: Era
   tune?: Record<string, Tune>
 }
 
@@ -48,7 +58,7 @@ export type NoteTrigger =
   /** Fires when the Reader climbs above this height. */
   | { y: number }
   | { word: string }
-  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' }
+  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' | 'past' | 'present' | 'grow' | 'strike' }
 
 /**
  * A body of water whose level can change. Tide words (RAIN, SINK…) shift it;
@@ -72,6 +82,15 @@ export interface LetterDef {
   letter: string
   x: number
   y: number
+  era?: Era
+}
+
+export interface ErasDef {
+  start?: Era
+  /** False: only the clock can turn time (default true). */
+  manual?: boolean
+  /** While a CLOCK ticks, time flips on its own every `period` seconds. */
+  auto?: { period: number; warn: number }
 }
 
 export interface NoteDef {
@@ -97,13 +116,15 @@ export interface LevelDef {
   spawn: Vec
   exit: Vec
   /** Solid ground. */
-  terrain: Rect[]
+  terrain: TerrainRect[]
   /** Still water: ink dissolves in it. */
   water?: Rect[]
   pools?: PoolDef[]
   letters?: LetterDef[]
   /** Death restarts the whole page (chases, floods). */
   restartOnDeath?: boolean
+  /** Then & Now. */
+  eras?: ErasDef
   words: WordDef[]
   powers: Power[]
   /** How many letters the quill can hold (only matters with the place power). */
@@ -113,7 +134,7 @@ export interface LevelDef {
   checkpoints?: Vec[]
   dark?: boolean
   blot?: { x: number; speed: number; delay: number }
-  diary?: { id: string; x: number; y: number; onlyInDark?: boolean }
+  diary?: { id: string; x: number; y: number; onlyInDark?: boolean; era?: Era }
   notes: NoteDef[]
   hints: string[]
   /** A known solution, used by the tests. */

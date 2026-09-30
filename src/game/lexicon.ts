@@ -38,6 +38,10 @@ export interface Kind {
   guardian?: boolean
   /** The water itself. While it exists, a rising pool keeps rising. */
   flood?: boolean
+  /** What this becomes, given enough time (Then → Now). */
+  grows?: string
+  /** A ticking clock: while it exists, time flips on its own (on pages that allow it). */
+  clock?: boolean
 }
 
 export const LEXICON: Record<string, Kind> = {
@@ -112,6 +116,27 @@ export const LEXICON: Record<string, Kind> = {
   ROPE: { art: 'rope', w: 24, h: 260, climb: true, desc: 'A rope. Climbable.' },
   FLOOD: { art: 'flood', w: 0, h: 0, flood: true, desc: 'The flood. It is rising.' },
   FLOOR: { art: 'floor', w: 1100, h: 26, solid: true, floats: 4, desc: 'A floor, floating where the flood was.' },
+
+  // Chapter III: The Clockwork Tower. Things planted Then grow up by Now.
+  SEED: { art: 'sprout', w: 20, h: 16, grows: 'TREE', desc: 'A seed. Give it time.' },
+  TREE: { art: 'tree', w: 70, h: 200, climb: true, desc: 'A tree, grown from a seed. Climbable.' },
+  CUB: { art: 'cub', w: 40, h: 30, grows: 'BEAR', desc: 'A bear cub. Tiny. For now.' },
+  CUBE: { art: 'cube', w: 70, h: 70, solid: true, desc: 'A stone cube. Stone doesn’t grow up.' },
+  IRON: { art: 'iron', w: 40, h: 160, solid: true, grows: 'RUST', desc: 'An iron gate. Iron rusts.' },
+  RUST: { art: 'rust', w: 60, h: 18, desc: 'A heap of rust where a gate used to be.' },
+  WHEAT: { art: 'wheat', w: 140, h: 44, desc: 'A field of young wheat.' },
+  SPARK: { art: 'spark', w: 20, h: 20, grows: 'FIRE', desc: 'A spark. Sparks grow into fires.' },
+  CORN: { art: 'corn', w: 26, h: 50, desc: 'A stalk of corn.' },
+  ACORN: { art: 'sprout', w: 20, h: 16, grows: 'OAK', desc: 'An acorn. It dreams of being an oak.' },
+  OAK: { art: 'oak', w: 110, h: 320, climb: true, desc: 'A great oak. Climbable.' },
+  GEAR: { art: 'gear', w: 80, h: 20, vehicle: true, grows: 'COG', desc: 'A turning gear.' },
+  COG: { art: 'cog', w: 80, h: 20, vehicle: true, desc: 'A cog, rusted still.' },
+  DRIP: { art: 'drip', w: 40, h: 60, grows: 'POND', desc: 'A drip. Drip, drip, for years.' },
+  POND: { art: 'stream', w: 300, h: 40, hazard: true, desc: 'A pond, from years of dripping.' },
+  BEAN: { art: 'sprout', w: 20, h: 16, grows: 'STALK', desc: 'A bean. Magic, possibly.' },
+  STALK: { art: 'stem', w: 40, h: 380, climb: true, desc: 'A beanstalk. Up and up.' },
+  CLOCK: { art: 'clock', w: 60, h: 90, clock: true, desc: 'A clock. It strikes, and time turns.' },
+  LOCK: { art: 'padlock', w: 40, h: 44, desc: 'A lock. Time holds still.' },
 }
 
 export const WHISPER: Kind = {

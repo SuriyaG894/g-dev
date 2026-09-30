@@ -86,3 +86,15 @@ export class Bot {
     this.hold({ right: true }, (w) => w.complete, maxSeconds, 'page complete')
   }
 }
+
+/** Turns time, failing loudly if it was refused. */
+export function flip(b: Bot): void {
+  if (!b.w.flip()) throw new Error(`flip refused at x=${b.w.player.x.toFixed(1)} (${b.w.era})`)
+  b.w.events = []
+  b.tick()
+}
+
+/** Waits until the clock has just turned time to `era`. */
+export function waitEra(b: Bot, era: 'past' | 'present'): void {
+  b.hold({}, (w) => w.era === era && w.clockTime < 0.25, 12, `fresh ${era}`)
+}

@@ -40,6 +40,7 @@ export class Play {
     this.world = new World(level)
     if (app.save.diary.includes(level.diary?.id ?? '')) this.world.diaryTaken = true
     this.hud = new Hud(app.hudRoot, this.world, {
+      flip: () => this.flip(),
       hint: () => this.hint(),
       undo: () => this.undo(),
       restart: () => this.restart(),
@@ -241,6 +242,26 @@ export class Play {
           this.shake = 3
           this.trigger((n) => 'event' in n && n.event === 'shush')
           break
+        case 'flip':
+          app.sound.play(e.forced ? 'chime' : 'flip')
+          this.particles.sparkle(w.player.x, w.player.y - PLAYER_H / 2, 18, e.era === 'past' ? '#d9b27a' : '#a0772b')
+          if (e.forced) {
+            this.shake = 4
+            this.trigger((n) => 'event' in n && n.event === 'strike')
+          }
+          this.trigger((n) => 'event' in n && n.event === e.era)
+          break
+        case 'grow':
+          this.trigger((n) => 'event' in n && n.event === 'grow')
+          if (w.era === 'past' && e.from) {
+            app.sound.play('whisper')
+            this.say('grew', EVENT_NOTES.grew)
+          }
+          this.trigger((n) => 'word' in n && n.word === e.to)
+          break
+        case 'tick':
+          app.sound.play('tick')
+          break
         case 'discard':
           break
       }
@@ -264,6 +285,8 @@ export class Play {
       gold: EVENT_NOTES.gold,
       full: EVENT_NOTES.full,
       short: EVENT_NOTES.short,
+      echo: EVENT_NOTES.echo,
+      blocked: EVENT_NOTES.blocked,
     }
     const t = text[reason]
     if (t) this.app.notes.say(t, { urgent: true })
@@ -316,6 +339,13 @@ export class Play {
     this.hintIndex++
   }
 
+  private flip(): void {
+    if (this.paused || this.ended) return
+    this.closePanel()
+    this.world.flip()
+    this.drain()
+  }
+
   private undo(): void {
     this.closePanel()
     if (!this.world.undo()) this.app.sound.play('refuse')
@@ -354,6 +384,9 @@ export class Play {
         break
       case 'mute':
         this.app.toggleMute()
+        break
+      case 'flip':
+        if (this.world.canFlip) this.flip()
         break
       case 'debug':
         if (import.meta.env.DEV) this.debug = !this.debug
@@ -439,7 +472,14 @@ export class Play {
       'div',
       { class: 'touch' },
       h('div', { class: 'touch-left' }, pad('◀', 'left', 'tb-left', 'Move left'), pad('▶', 'right', 'tb-right', 'Move right')),
-      h('div', { class: 'touch-right' }, pad('▼', 'down', 'tb-down', 'Climb down'), pad('▲', 'up', 'tb-up', 'Climb up'), pad('⤒', 'jump', 'tb-jump', 'Jump')),
+      h(
+        'div',
+        { class: 'touch-right' },
+        this.world.canFlip ? h('button', { class: 'tbtn tb-flip', text: '⟲', attrs: { type: 'button', 'aria-label': 'Turn time' }, on: { pointerdown: (e) => (e.preventDefault(), this.flip()) } }) : null,
+        pad('▼', 'down', 'tb-down', 'Climb down'),
+        pad('▲', 'up', 'tb-up', 'Climb up'),
+        pad('⤒', 'jump', 'tb-jump', 'Jump'),
+      ),
     )
     this.app.uiRoot.append(this.touchEl)
   }

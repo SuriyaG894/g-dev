@@ -1,6 +1,6 @@
 import * as ink from './ink'
 import { LEXICON, SCRIBBLE, WHISPER, tierOf, whisperWidth, type Kind, type Tier } from './lexicon'
-import type { Input, LetterDef, LevelDef, Op, PoolDef, Rect, Vec, WordDef } from './types'
+import type { Era, Input, LetterDef, LevelDef, Op, PoolDef, Rect, TerrainRect, Vec, WordDef } from './types'
 
 export const PLAYER_W = 20
 export const PLAYER_H = 38
@@ -62,6 +62,10 @@ export interface Entity {
   labelX?: number
   veh?: Vehicle
   guard?: Guard
+  /** Which time it belongs to. */
+  era: Era | 'both'
+  /** The grown-up form, Now, of a word that lives Then. It can't be edited directly. */
+  echo?: boolean
 }
 
 export interface Ghost {
@@ -85,7 +89,7 @@ export interface Player {
   air: number
 }
 
-export type EditRefusal = 'far' | 'dark' | 'gold' | 'full' | 'short' | 'power' | 'busy'
+export type EditRefusal = 'far' | 'dark' | 'gold' | 'full' | 'short' | 'power' | 'busy' | 'echo' | 'blocked'
 
 export type WorldEvent =
   | { type: 'transform'; wordId: string; from: string; to: string; tier: Tier; x: number; y: number }
@@ -106,11 +110,25 @@ export type WorldEvent =
   | { type: 'letter'; letter: string; x: number; y: number }
   | { type: 'lure'; x: number }
   | { type: 'shush'; x: number; y: number }
+  | { type: 'flip'; era: Era; forced: boolean }
+  | { type: 'grow'; from: string; to: string }
+  | { type: 'tick' }
 
 interface WordState {
   def: WordDef
   text: string
   ent: Entity
+  /** For words that live Then: what they have grown into, Now. */
+  echo?: Entity
+}
+
+/** What a spelling becomes with time. */
+export function grow(text: string): string {
+  return LEXICON[text]?.grows ?? text
+}
+
+function other(era: Era): Era {
+  return era === 'past' ? 'present' : 'past'
 }
 
 interface Snapshot {
@@ -169,6 +187,10 @@ export class World {
   /** Lost letters already caught. */
   readonly taken = new Set<string>()
   private fullNear: string | null = null
+  era: Era = 'present'
+  /** Seconds since the clock last struck. */
+  clockTime = 0
+  private warned = false
   private uid = 0
 
   constructor(level: LevelDef) {
@@ -179,12 +201,16 @@ export class World {
 
   /** Back to the start of the page (the diary page stays collected). */
   reset(): void {
+    this.era = this.level.eras?.start ?? 'present'
+    this.clockTime = 0
+    this.warned = false
     this.pools = (this.level.pools ?? []).map((def) => ({ def, base: def.base, surface: def.base }))
     this.taken.clear()
     this.words.clear()
     for (const def of this.level.words) {
       const ws = { def, text: def.text } as WordState
       ws.ent = this.build(ws, def.text, null)
+      if (def.era === 'past') ws.echo = this.buildEcho(ws, null)
       this.words.set(def.id, ws)
     }
     this.quill = []
@@ -264,6 +290,7 @@ export class World {
       home,
       age: 0,
       gold: !!def.gold,
+      era: def.era ?? 'both',
       light: tune.light ?? kind.light ?? 0,
       labelY: tune.ly,
       anchorX: tune.x ?? def.x,
@@ -277,8 +304,53 @@ export class World {
     return ent
   }
 
+  private buildEcho(ws: WordState, prev: Entity | null): Entity {
+    const echo = this.build(ws, grow(ws.text), prev)
+    echo.era = 'present'
+    echo.echo = true
+    return echo
+  }
+
+  /** What exists in the current time. */
   entities(): Entity[] {
-    return [...this.words.values()].map((w) => w.ent)
+    const out: Entity[] = []
+    for (const ws of this.words.values()) {
+      const e = this.activeOf(ws)
+      if (e) out.push(e)
+    }
+    return out
+  }
+
+  /** Everything, in both times (so things keep moving while you're away). */
+  private allEntities(): Entity[] {
+    const out: Entity[] = []
+    for (const ws of this.words.values()) {
+      out.push(ws.ent)
+      if (ws.echo) out.push(ws.echo)
+    }
+    return out
+  }
+
+  private activeOf(ws: WordState): Entity | null {
+    const era = ws.def.era
+    if (!era) return ws.ent
+    if (era === 'present') return this.era === 'present' ? ws.ent : null
+    return this.era === 'past' ? ws.ent : (ws.echo ?? null)
+  }
+
+  /** The word's entity in the current time, if it exists now. */
+  entityOf(wordId: string): Entity | null {
+    const ws = this.words.get(wordId)
+    return ws ? this.activeOf(ws) : null
+  }
+
+  terrain(): TerrainRect[] {
+    return this.level.terrain.filter((r) => !r.era || r.era === this.era)
+  }
+
+  /** Ground that exists only in the other time (drawn faintly, as a memory or a promise). */
+  otherTerrain(): TerrainRect[] {
+    return this.level.terrain.filter((r) => r.era && r.era !== this.era)
   }
 
   get isDark(): boolean {
@@ -324,6 +396,15 @@ export class World {
     ws.ent = ent
     const at = this.labelPos(ent)
     this.events.push({ type: 'transform', wordId: ws.def.id, from, to: text, tier: tierOf(text), x: at.x, y: at.y })
+    if (ws.def.era === 'past') {
+      const old = ws.echo
+      const grown = grow(text)
+      if (!old || old.text !== grown) {
+        ws.echo = this.buildEcho(ws, old ?? null)
+        if (old) this.ghosts.push({ ent: old, age: 0 })
+        this.events.push({ type: 'grow', from: old?.text ?? '', to: grown })
+      }
+    }
     if (this.isDark !== wasDark) this.events.push({ type: 'dark', on: this.isDark })
     this.unstick()
   }
@@ -349,8 +430,11 @@ export class World {
     if (this.dead || this.complete) return 'busy'
     const ws = this.words.get(wordId)
     if (!ws) return 'busy'
+    const ent = this.activeOf(ws)
+    if (!ent) return 'busy'
+    if (ent.echo) return 'echo'
     if (ws.def.gold) return 'gold'
-    const at = this.labelPos(ws.ent)
+    const at = this.labelPos(ent)
     const p = this.player
     if (Math.hypot(at.x - p.x, at.y - (p.y - PLAYER_H / 2)) > REACH) return 'far'
     if (!this.isLit(at)) return 'dark'
@@ -445,7 +529,7 @@ export class World {
   }
 
   solids(): Solid[] {
-    const out: Solid[] = this.level.terrain.map((r) => ({ r, ent: null }))
+    const out: Solid[] = this.terrain().map((r) => ({ r, ent: null }))
     for (const ent of this.entities()) if (ent.kind.solid) out.push({ r: ent.box, ent })
     return out
   }
@@ -510,7 +594,60 @@ export class World {
   }
 
   freeLetters(): LetterDef[] {
-    return (this.level.letters ?? []).filter((l) => !this.taken.has(l.id))
+    return (this.level.letters ?? []).filter((l) => !this.taken.has(l.id) && (!l.era || l.era === this.era))
+  }
+
+  /** Letters waiting in the other time. */
+  otherLetters(): LetterDef[] {
+    return (this.level.letters ?? []).filter((l) => !this.taken.has(l.id) && l.era && l.era !== this.era)
+  }
+
+  // ------------------------------------------------------------------- time
+
+  get canFlip(): boolean {
+    return !!this.level.eras && this.level.eras.manual !== false
+  }
+
+  /** Is the clock still ticking (so time turns on its own)? */
+  get ticking(): boolean {
+    return !!this.level.eras?.auto && this.entities().some((e) => e.kind.clock)
+  }
+
+  /** Turns time: Then ↔ Now. Refused if the Reader would be inside something. */
+  flip(forced = false): boolean {
+    if (!this.level.eras || this.dead || this.complete) return false
+    if (!forced && !this.canFlip) return this.refuse('power')
+    const from = this.era
+    const wasDark = this.isDark
+    this.era = other(from)
+    const pb = this.playerBox()
+    const stuck = this.solids().some((s) => overlap(pb, s.r))
+    const hurt = this.hazards().some((h) => overlap(inset(pb, 3, 3), h))
+    if (!forced && (stuck || hurt)) {
+      this.era = from
+      return this.refuse('blocked')
+    }
+    if (stuck) this.unstick()
+    this.player.grounded = false
+    this.player.ground = null
+    this.events.push({ type: 'flip', era: this.era, forced })
+    if (this.isDark !== wasDark) this.events.push({ type: 'dark', on: this.isDark })
+    return true
+  }
+
+  private updateClock(dt: number): void {
+    const auto = this.level.eras?.auto
+    if (!auto || !this.ticking) return
+    this.clockTime += dt
+    if (!this.warned && this.clockTime >= auto.period - auto.warn) {
+      this.warned = true
+      this.events.push({ type: 'tick' })
+    }
+    if (this.clockTime >= auto.period) {
+      this.clockTime = 0
+      this.warned = false
+      this.flip(true)
+    }
   }
 
   get blotFront(): number {
@@ -544,6 +681,7 @@ export class World {
     for (const ent of this.entities()) ent.age += dt
     if (this.complete) return
     this.time += dt
+    this.updateClock(dt)
     this.updatePools(dt)
     this.updateGuards(dt)
     this.moveEntities(dt)
@@ -574,7 +712,7 @@ export class World {
     this.catchLetters()
 
     const d = this.level.diary
-    if (d && !this.diaryTaken && (!d.onlyInDark || this.isDark)) {
+    if (d && !this.diaryTaken && (!d.onlyInDark || this.isDark) && (!d.era || d.era === this.era)) {
       if (Math.hypot(p.x - d.x, p.y - PLAYER_H / 2 - d.y) < 36) {
         this.diaryTaken = true
         this.events.push({ type: 'diary', id: d.id })
@@ -609,7 +747,7 @@ export class World {
   /** Moves everything that moves: shuttles, floaters, swimmers, the flood, the Librarian. */
   private moveEntities(dt: number): void {
     const p = this.player
-    for (const ent of this.entities()) {
+    for (const ent of this.allEntities()) {
       const px = ent.box.x
       const py = ent.box.y
       this.position(ent, dt)
@@ -852,9 +990,11 @@ export class World {
     }
 
     if (p.climbing) {
-      const zone = this.zoneAt((k) => k.climb)
-      if (zone && p.y < zone.y) {
-        p.y = zone.y
+      // Clamp against the zone we started the step in; re-testing after moving would miss the top edge.
+      const zone = climbZone
+      if (zone && p.y < zone.y + 1) {
+        // Keep the feet just inside the zone, so stepping sideways off the top still counts as climbing.
+        p.y = zone.y + 1
         if (p.vy < 0) p.vy = 0
       }
     }

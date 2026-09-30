@@ -2,6 +2,7 @@ import type { World } from '../game/world'
 import { button, h, words } from './dom'
 
 export interface HudActions {
+  flip: () => void
   hint: () => void
   undo: () => void
   restart: () => void
@@ -15,6 +16,7 @@ export class Hud {
   private ink: HTMLElement
   private slots: HTMLElement
   private soundBtn: HTMLButtonElement
+  private flipBtn: HTMLButtonElement | null = null
   private last = ''
 
   constructor(root: HTMLElement, world: World, actions: HudActions, muted: boolean) {
@@ -22,6 +24,7 @@ export class Hud {
     this.ink = h('div', { class: 'hud-ink' })
     this.slots = h('div', { class: 'quill-slots', attrs: { 'aria-label': 'Your quill' } })
     this.soundBtn = button(muted ? '♪̸' : '♪', actions.sound, 'icon-btn', { 'aria-label': 'Toggle sound (M)', title: 'Sound (M)' })
+    if (world.canFlip) this.flipBtn = button('⟲ Then', actions.flip, 'flip-btn', { 'aria-label': 'Turn time (F)', title: 'Turn time (F)' })
     this.el = h(
       'div',
       { class: 'hud' },
@@ -35,6 +38,7 @@ export class Hud {
       h(
         'div',
         { class: 'hud-right' },
+        this.flipBtn,
         button('?', actions.hint, 'icon-btn', { 'aria-label': 'Hint (H)', title: 'Hint (H)' }),
         button('↶', actions.undo, 'icon-btn', { 'aria-label': 'Undo (Z)', title: 'Undo (Z)' }),
         button('↻', actions.restart, 'icon-btn', { 'aria-label': 'Restart page (R)', title: 'Restart page (R)' }),
@@ -51,11 +55,15 @@ export class Hud {
   }
 
   update(world: World): void {
-    const key = `${world.edits}|${world.quill.join('')}`
+    const key = `${world.edits}|${world.quill.join('')}|${world.era}`
     if (key === this.last) return
     this.last = key
     this.ink.textContent = `Ink used ${world.edits} · Perfect ${world.level.par}`
     this.ink.classList.toggle('over', world.edits > world.level.par)
+    if (this.flipBtn) {
+      this.flipBtn.textContent = world.era === 'present' ? '⟲ Then' : '⟲ Now'
+      this.flipBtn.classList.toggle('past', world.era === 'past')
+    }
     if (world.canPlace) {
       this.slots.replaceChildren(
         h('span', { class: 'quill-label', text: 'Quill' }),

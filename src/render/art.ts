@@ -3,6 +3,7 @@ import type { Rect } from '../game/types'
 import type { Entity } from '../game/world'
 import type { Palette } from './palette'
 import { ART_2 } from './art2'
+import { ART_3 } from './art3'
 import type { Pen, Pt } from './pen'
 
 export interface ArtCtx {
@@ -463,4 +464,4 @@ export const ART: Record<string, Art> = {
   },
 }
 
-Object.assign(ART, ART_2)
+Object.assign(ART, ART_2, ART_3)

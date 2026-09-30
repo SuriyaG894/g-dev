@@ -59,7 +59,7 @@ export function titleScreen(app: App): HTMLElement {
     letters,
     h('p', { class: 'tagline', text: 'Every world is written. Every word can be unwritten.' }),
     menu,
-    h('div', { class: 'title-foot', text: `v0.2 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
+    h('div', { class: 'title-foot', text: `v0.3 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
   )
 }
 
@@ -210,6 +210,7 @@ export function settingsScreen(app: App, back: () => void): HTMLElement {
         h('h3', { text: 'Controls' }),
         h('p', { text: '← → or A D: walk · Space: jump · ↑ W: climb' }),
         h('p', { text: 'Click a word (or press E) to edit it · Z: undo · R: restart · H: hint · M: mute · Esc: pause' }),
+        h('p', { text: 'F (or Q): turn time, Then ↔ Now, in the Clockwork Tower' }),
       ),
       reset,
     ),

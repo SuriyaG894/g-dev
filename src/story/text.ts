@@ -28,6 +28,9 @@ export const EVENT_NOTES = {
   blotDeath: 'It took the whole page. Start again. Quicker this time.',
   pageDeath: 'The page starts over. Everything remembers where it was.',
   returned: 'You left. I noticed.',
+  echo: 'That grew from something Then. Change it in the past.',
+  blocked: 'You can’t be there, in that time. Something is in the way.',
+  grew: 'Somewhere, Now, something just changed.',
 }
 
 export const TAB_WHISPERS = ['Come back…', 'The Blot is waiting.', 'Don’t leave me on this page.', 'Are you still reading?']
@@ -61,6 +64,17 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-3',
+    title: 'A page hidden in the past',
+    body: [
+      'The clock in the hospital corridor was always four minutes fast.',
+      'I set my watch by it, so I would have four more minutes with her.',
+      'On the last day I didn’t look at the clock at all.',
+      'I have been trying to get those four minutes back ever since.',
+      '— A.',
+    ],
+  },
 ]
 
 export const CHAPTER_ENDS: Record<number, string[]> = {
@@ -75,6 +89,12 @@ export const CHAPTER_ENDS: Record<number, string[]> = {
     'High in the rafters, the Librarian writes one new word in gold:',
     'REMEMBER.',
     'Far below, something black is learning to swim.',
+  ],
+  3: [
+    'Every clock in the tower strikes midnight at once.',
+    'For one long second, Then and Now are the same moment.',
+    'The Reader sees two people at a bedside, a book open between them.',
+    'Then the hands move on.',
   ],
 }
 

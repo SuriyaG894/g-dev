@@ -1,6 +1,7 @@
 import type { Theme } from '../game/types'
 import { PLAYER_H, REACH, type Entity, type World } from '../game/world'
 import { ART } from './art'
+import { gearShape } from './art3'
 import { PALETTES, type Palette } from './palette'
 import type { Particles } from './particles'
 import { Pen, type Pt } from './pen'
@@ -54,6 +55,11 @@ export class Renderer {
   private dark: HTMLCanvasElement
   private darkCtx: CanvasRenderingContext2D
   private darkAmt = 0
+  /** 0 = Now, 1 = Then (eased, for the sepia wash). */
+  private pastAmt = 0
+  private lastEra: string | null = null
+  /** Counts down after a flip, for the clock-face ripple. */
+  private flipFx = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -124,7 +130,12 @@ export class Renderer {
     const h = world.level.height ?? VIEW_H
     const ty = h <= VIEW_H ? 0 : Math.max(0, Math.min(h - VIEW_H, p.y - VIEW_H * 0.62))
     this.camY = snap ? ty : this.camY + (ty - this.camY) * Math.min(1, dt * 5)
-    if (snap) this.darkAmt = world.isDark ? 1 : 0
+    if (snap) {
+      this.darkAmt = world.isDark ? 1 : 0
+      this.pastAmt = world.era === 'past' ? 1 : 0
+      this.lastEra = world.era
+      this.flipFx = 0
+    }
   }
 
   // ------------------------------------------------------------------ frame
@@ -172,16 +183,19 @@ export class Renderer {
 
     pen.boil = 0
     if (lvl.theme === 'library' || lvl.theme === 'archive' || lvl.theme === 'flood') this.shelves(lvl.theme, pal, st.t)
+    else if (lvl.theme === 'clock') this.clockworks(world, pal, st.t)
     else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
 
     for (const w of lvl.water ?? []) this.water(w.x, w.y, w.w, w.h, pal, st.t)
-    lvl.terrain.forEach((r, i) => this.terrain(r.x, r.y, r.w, r.h, i, pal, lvl.theme))
+    for (const r of world.otherTerrain()) this.memory(r.x, r.y, r.w, r.h, pal)
+    world.terrain().forEach((r) => this.terrain(r.x, r.y, r.w, r.h, lvl.terrain.indexOf(r), pal, lvl.theme))
     ;(lvl.checkpoints ?? []).forEach((cp, i) => this.checkpoint(cp.x, cp.y, world.reached.has(i), pal, st.t))
     this.exit(lvl.exit.x, lvl.exit.y, pal, st.t)
 
     for (const g of world.ghosts) {
+      if (g.ent.era !== 'both' && g.ent.era !== world.era) continue
       c.save()
       c.globalAlpha = Math.max(0, 1 - g.age / 0.6)
       c.translate(0, -g.age * 24)
@@ -199,6 +213,8 @@ export class Renderer {
     st.particles.draw(c, this.font)
     if (lvl.blot) this.blot(world.blotFront, pal, st.t)
 
+    this.timeWash(world, pal, st.t, st.reduced)
+
     // Darkness.
     const target = world.isDark ? 1 : 0
     this.darkAmt += (target - this.darkAmt) * Math.min(1, 1 / 30)
@@ -206,6 +222,7 @@ export class Renderer {
     this.worldTransform(st.shake)
     this.diary(world, st.t)
     this.letters(world, pal, st.t)
+    this.otherLetters(world, pal)
 
     if (st.selected) this.editOverlay(world, pal)
     if (st.debug) this.debug(world)
@@ -344,6 +361,146 @@ export class Renderer {
     }
   }
 
+  private tinyClock(x: number, y: number, pal: Palette): void {
+    const c = this.ctx
+    c.save()
+    c.strokeStyle = pal.accent
+    c.lineWidth = 1.4
+    c.beginPath()
+    c.arc(x, y, 6, 0, Math.PI * 2)
+    c.moveTo(x, y)
+    c.lineTo(x, y - 4)
+    c.moveTo(x, y)
+    c.lineTo(x + 3, y + 1)
+    c.stroke()
+    c.restore()
+  }
+
+  /** Ground that belongs to the other time: a faint dashed memory of it. */
+  private memory(x: number, y: number, w: number, h: number, pal: Palette): void {
+    if (x > this.camX + this.viewW + 20 || x + w < this.camX - 20) return
+    const c = this.ctx
+    c.save()
+    c.globalAlpha = 0.22
+    c.setLineDash([6, 7])
+    c.strokeStyle = pal.accent
+    c.lineWidth = 1.6
+    c.strokeRect(x, y, w, Math.min(h, 40))
+    c.restore()
+  }
+
+  /** The tower's machinery: great gears that turn Then and stand rusted Now. */
+  private clockworks(world: World, pal: Palette, t: number): void {
+    const pen = this.pen
+    const par = 0.3
+    const left = this.camX * par
+    const top = this.camY * 0.5
+    const past = world.era === 'past'
+    for (let i = 0; i < 9; i++) {
+      const px = hash(i + 40) * (world.level.width * par + this.viewW)
+      const x = this.camX + (px - left)
+      if (x < this.camX - 260 || x > this.camX + this.viewW + 260) continue
+      const y = this.camY + (60 + hash(i + 50) * 420 - top * (i % 2 ? 0.3 : 0.1))
+      const r = 60 + hash(i + 60) * 110
+      const dir = i % 2 ? 1 : -1
+      const angle = past ? t * 0.25 * dir * (90 / r) : hash(i) * 3
+      pen.seed(i + 900)
+      gearShape(pen, x, y, r, Math.round(r / 11), angle, { w: 1.6, alpha: past ? 0.16 : 0.1, fill: past ? pal.accent : '#9c5a32', fillAlpha: 0.04 })
+    }
+    // A pendulum, swinging Then, hanging still Now.
+    const x = this.camX + this.viewW * 0.5 - left * 0.1
+    const sw = past ? Math.sin(t * 1.6) * 0.3 : 0.02
+    const len = 300
+    const top0 = this.camY - 10
+    pen.seed(3)
+    pen.line(x, top0, x + Math.sin(sw) * len, top0 + Math.cos(sw) * len, { w: 1.4, alpha: 0.14, plain: true })
+    pen.ellipse(x + Math.sin(sw) * len, top0 + Math.cos(sw) * len, 22, 22, { w: 1.6, alpha: 0.14, plain: true })
+  }
+
+  /** Then is washed in sepia; a flip sends a clock-face ripple out from the Reader. */
+  private timeWash(world: World, pal: Palette, t: number, reduced: boolean): void {
+    if (!world.level.eras) return
+    const c = this.ctx
+    if (this.lastEra !== null && this.lastEra !== world.era) this.flipFx = 1
+    this.lastEra = world.era
+    const target = world.era === 'past' ? 1 : 0
+    this.pastAmt += (target - this.pastAmt) * (reduced ? 1 : 0.12)
+    this.flipFx = Math.max(0, this.flipFx - 1 / 36)
+    c.save()
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    if (this.pastAmt > 0.01) {
+      c.globalCompositeOperation = 'multiply'
+      c.globalAlpha = this.pastAmt * 0.5
+      c.fillStyle = '#d9b27a'
+      c.fillRect(0, 0, this.cssW, this.cssH)
+      c.globalCompositeOperation = 'source-over'
+      if (!reduced) {
+        // Old film: a scratch or two.
+        c.globalAlpha = this.pastAmt * 0.12
+        c.fillStyle = pal.ink
+        for (let i = 0; i < 2; i++) {
+          const sx = hash(Math.floor(t * 8) + i * 7) * this.cssW
+          c.fillRect(sx, 0, 1, this.cssH)
+        }
+      }
+    }
+    // THEN / NOW stamp.
+    c.globalAlpha = 0.75
+    c.font = `20px ${this.font}`
+    c.textAlign = 'center'
+    c.textBaseline = 'top'
+    c.fillStyle = world.era === 'past' ? '#8a5a1e' : pal.accent
+    c.fillText(world.era === 'past' ? '— THEN —' : '— NOW —', this.cssW / 2, 18)
+    if (world.ticking && world.level.eras.auto) {
+      // The clock hand counting down to the next strike.
+      const k = world.clockTime / world.level.eras.auto.period
+      const cx = this.cssW / 2
+      c.globalAlpha = 0.8
+      c.strokeStyle = world.level.eras.auto.period - world.clockTime < world.level.eras.auto.warn ? '#9b3b2e' : pal.ink
+      c.lineWidth = 2
+      c.beginPath()
+      c.arc(cx, 58, 12, 0, Math.PI * 2)
+      c.moveTo(cx, 58)
+      c.lineTo(cx + Math.sin(k * Math.PI * 2) * 10, 58 - Math.cos(k * Math.PI * 2) * 10)
+      c.stroke()
+    }
+    if (this.flipFx > 0 && !reduced) {
+      const p = this.toScreen(world.player.x, world.player.y - PLAYER_H / 2)
+      const r = (1 - this.flipFx) * Math.max(this.cssW, this.cssH) * 0.9
+      c.globalAlpha = this.flipFx * 0.7
+      c.strokeStyle = world.era === 'past' ? '#8a5a1e' : pal.accent
+      c.lineWidth = 3
+      c.beginPath()
+      c.arc(p.x, p.y, r, 0, Math.PI * 2)
+      c.stroke()
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + this.flipFx * 2
+        c.beginPath()
+        c.moveTo(p.x + Math.cos(a) * (r - 14), p.y + Math.sin(a) * (r - 14))
+        c.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r)
+        c.stroke()
+      }
+      c.globalAlpha = this.flipFx * 0.25
+      c.fillStyle = '#fff8e6'
+      c.fillRect(0, 0, this.cssW, this.cssH)
+    }
+    c.restore()
+    this.ctx.globalAlpha = 1
+  }
+
+  /** Letters waiting in the other time glimmer faintly, as a hint. */
+  private otherLetters(world: World, pal: Palette): void {
+    const c = this.ctx
+    c.save()
+    c.globalAlpha = 0.2
+    c.font = `30px ${this.font}`
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillStyle = pal.gold
+    for (const l of world.otherLetters()) c.fillText(l.letter, l.x, l.y)
+    c.restore()
+  }
+
   private pools(world: World, pal: Palette, t: number): void {
     const c = this.ctx
     const pen = this.pen
@@ -423,10 +580,10 @@ export class Renderer {
     const pen = this.pen
     const c = this.ctx
     pen.seed(i * 1013)
-    const indoors = theme === 'library' || theme === 'archive' || theme === 'flood'
+    const indoors = theme === 'library' || theme === 'archive' || theme === 'flood' || theme === 'clock'
     if (h <= 24 && indoors) {
-      // A library shelf: a plank on two brackets.
-      pen.rect(x, y, w, Math.min(h, 16), { fill: '#7b5836', fillAlpha: 0.6, w: 2 })
+      // A library shelf (or, in the tower, a brass beam) on two brackets.
+      pen.rect(x, y, w, Math.min(h, 16), { fill: theme === 'clock' ? '#a0772b' : '#7b5836', fillAlpha: 0.6, w: 2 })
       for (const bx of [x + 14, x + w - 14]) pen.stroke([P(bx - 8, y + 16), P(bx, y + 34), P(bx + 8, y + 16)], { w: 1.6 })
       pen.line(x + 4, y + 5, x + w - 4, y + 5, { w: 0.8, alpha: 0.4, plain: true })
       return
@@ -581,8 +738,9 @@ export class Renderer {
         c.fillStyle = g
         c.fillRect(at.x - width, at.y - width, width * 2, width * 2)
       }
-      c.globalAlpha = alpha
-      c.fillStyle = ent.gold ? pal.gold : ent.kind.scribble ? '#6b2a1f' : pal.ink
+      c.globalAlpha = alpha * (ent.echo ? 0.75 : 1)
+      c.fillStyle = ent.gold ? pal.gold : ent.kind.scribble ? '#6b2a1f' : ent.echo ? '#6d5c45' : pal.ink
+      if (ent.echo) this.tinyClock(at.x - width / 2 - 14, at.y, pal)
       // Letter by letter, each one breathing slightly.
       let x = at.x - width / 2
       for (let i = 0; i < ent.text.length; i++) {
@@ -740,7 +898,7 @@ export class Renderer {
   private diary(world: World, t: number): void {
     const d = world.level.diary
     if (!d || world.diaryTaken) return
-    const visible = !d.onlyInDark || world.isDark
+    const visible = (!d.onlyInDark || world.isDark) && (!d.era || d.era === world.era)
     const c = this.ctx
     const y = d.y + Math.sin(t * 1.8) * 5
     c.save()
