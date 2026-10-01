@@ -15,6 +15,8 @@ export interface SaveData {
   best: Record<string, number>
   diary: string[]
   secrets: string[]
+  /** Last words written on page two hundred and twelve. */
+  endings: string[]
   seenPrologue: boolean
   lastLevel: string | null
   settings: Settings
@@ -30,6 +32,7 @@ function fresh(): SaveData {
     best: {},
     diary: [],
     secrets: [],
+    endings: [],
     seenPrologue: false,
     lastLevel: null,
     settings: { volume: 0.8, music: true, reducedMotion: reduce, readableFont: false, muted: false },

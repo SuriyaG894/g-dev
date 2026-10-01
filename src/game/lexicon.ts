@@ -87,7 +87,7 @@ export const LEXICON: Record<string, Kind> = {
   // Page 3
   KNIGHT: { art: 'knight', w: 50, h: 100, hazard: true, alive: true, desc: 'A knight. He will not let you pass.' },
   NIGHT: { art: 'night', w: 70, h: 70, darkness: true, light: 90, desc: 'Night. Everything goes dark.' },
-  CLAMP: { art: 'clamp', w: 60, h: 150, solid: true, opens: true, desc: 'An iron clamp holding the path shut.' },
+  CLAMP: { art: 'clamp', w: 60, h: 150, solid: true, opens: true, grows: 'RUST', desc: 'An iron clamp holding the path shut.' },
   LAMP: { art: 'lamp', w: 30, h: 110, light: 340, desc: 'An oil lamp. Light!' },
   CAMP: { art: 'camp', w: 90, h: 60, desc: 'A small tent. Cosy, not bright.' },
   CLAM: { art: 'clam', w: 44, h: 26, solid: true, desc: 'A clam. Tight-lipped.' },
@@ -217,6 +217,20 @@ export const LEXICON: Record<string, Kind> = {
   SHELL: { art: 'shell', w: 30, h: 20, desc: 'An empty shell.' },
   SEASHELL: { art: 'seashell', w: 50, h: 40, desc: 'A seashell. Hold it to your ear.' },
   INKBLOT: { art: 'none', w: 0, h: 0, stops: true, desc: 'An inkblot. Folded, it’s only a picture. What do you see?' },
+
+  // Chapter VII: The Blank. Every power at once, while the book is being unwritten.
+  STRESSED: { art: 'stressed', w: 120, h: 90, hazard: true, desc: 'A knot of scribbles, crackling. Stressed.' },
+  DESSERTS: { art: 'desserts', w: 110, h: 100, solid: true, desc: 'A stack of cakes. Stressed, turned round, is desserts.' },
+  STAIR: { art: 'stair', w: 40, h: 22, desc: 'A single stair, going nowhere.' },
+  CASE: { art: 'case', w: 50, h: 36, desc: 'A suitcase, packed for somewhere.' },
+  STAIRCASE: { art: 'staircase', w: 200, h: 200, ramp: 1, desc: 'A staircase. Up you go.' },
+  MARK: { art: 'mark', w: 30, h: 14, desc: 'An X, marking the spot.' },
+  BOOKMARK: { art: 'bookmark', w: 30, h: 260, climb: true, desc: 'A bookmark, hanging from the top of the page. Climbable.' },
+  DRAWER: { art: 'drawer', w: 60, h: 40, desc: 'A drawer, stuck shut.' },
+
+  // The Past Page.
+  BOAST: { art: 'boast', w: 110, h: 30, desc: 'A get-well card, boasting: GET WELL SOON!' },
+  END: { art: 'endwall', w: 100, h: 230, solid: true, desc: 'THE END, written in ink, as tall as a wall.' },
 }
 
 /**

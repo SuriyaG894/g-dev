@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import * as ink from '../src/game/ink'
 import { ADJECTIVES, LEXICON, tierOf } from '../src/game/lexicon'
 import { World, grow } from '../src/game/world'
-import { CHAPTERS, ALL_LEVELS } from '../src/levels'
+import { CHAPTERS, ALL_LEVELS, SECRET } from '../src/levels'
 import { loadDictionary } from './helpers'
 
 beforeAll(loadDictionary)
@@ -14,7 +14,7 @@ describe('level data', () => {
     for (const c of CHAPTERS) expect(c.levels.length).toBe(5)
   })
 
-  for (const level of ALL_LEVELS) {
+  for (const level of [...ALL_LEVELS, ...SECRET.levels]) {
     describe(level.id, () => {
       it('starts with real words', () => {
         for (const w of level.words) if (!w.mirage) expect(tierOf(w.text), w.text).not.toBe('scribble')

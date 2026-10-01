@@ -1,7 +1,7 @@
 import { Sound } from './audio/sound'
 import type { LevelDef } from './game/types'
 import { Controls } from './input'
-import { ALL_LEVELS, CHAPTERS, levelById, nextLevel, type ChapterInfo } from './levels'
+import { ALL_LEVELS, CHAPTERS, chapterOf, levelById, nextLevel, type ChapterInfo } from './levels'
 import { Play } from './play'
 import { Renderer } from './render/renderer'
 import { load, persist, wipe, type SaveData, type Settings } from './save'
@@ -91,6 +91,7 @@ export class App {
     if (this.play) {
       this.play.destroy()
       this.play = null
+      document.body.classList.remove('playing')
       this.notes.clear()
       this.sound.startAmbient('woods')
     }
@@ -178,6 +179,7 @@ export class App {
     this.play?.destroy()
     this.notes.clear()
     this.play = new Play(this, level)
+    document.body.classList.add('playing')
     this.save.lastLevel = level.id
     persist(this.save)
     this.canvas.focus({ preventScroll: true })
@@ -189,9 +191,18 @@ export class App {
     const prevBest = this.save.best[level.id]
     if (prevBest === undefined || edits < prevBest) this.save.best[level.id] = edits
     persist(this.save)
-    const chapter = CHAPTERS.find((c) => c.levels.includes(level))!
+    const chapter = chapterOf(level)
     const next = nextLevel(level.id)
     const lastInChapter = chapter.levels[chapter.levels.length - 1] === level
+    if (lastInChapter && chapter === CHAPTERS[CHAPTERS.length - 1]) {
+      // Page two hundred and twelve: no chapter ending. You write it.
+      void this.turn(() => {
+        this.leavePlay()
+        this.sound.startAmbient('blank')
+        this.setScreen(screens.lastPageScreen(this))
+      })
+      return
+    }
     if (lastInChapter) {
       void this.turn(() => {
         this.leavePlay()
@@ -241,14 +252,37 @@ export class App {
     persist(this.save)
   }
 
+  get pastPageOpen(): boolean {
+    return this.save.secrets.includes('past-page')
+  }
+
+  showLastPage(): void {
+    void this.turn(() => {
+      this.leavePlay()
+      this.sound.startAmbient('blank')
+      this.setScreen(screens.lastPageScreen(this))
+    })
+  }
+
+  /** The last word is written. */
+  finishBook(word: string): void {
+    if (!this.save.endings.includes(word)) this.save.endings.push(word)
+    persist(this.save)
+    this.sound.play('complete')
+    void this.turn(() => {
+      this.sound.startAmbient(word === 'MIRA' ? 'ward' : 'sea')
+      this.setScreen(screens.endingScreen(this, word))
+    })
+  }
+
   secret(id: string): void {
     if (!this.save.secrets.includes(id)) this.save.secrets.push(id)
     persist(this.save)
   }
 
-  async share(): Promise<void> {
+  async share(message?: string): Promise<void> {
     const url = location.origin
-    const text = 'I escaped the Blot in The Last Page, a storybook where every word can be unwritten. Can you?'
+    const text = message ?? 'I escaped the Blot in The Last Page, a storybook where every word can be unwritten. Can you?'
     try {
       if (navigator.share) {
         await navigator.share({ title: 'The Last Page', text, url })

@@ -39,6 +39,8 @@ export const PALETTES: Record<Theme, Palette> = {
   flood: { ...base, accent: '#1f5a70', paper: '#e7ddc7', paperDark: '#d2c3a1', water: '#184a60' },
   clock: { ...base, accent: '#a0772b', paper: '#ede2c7', paperDark: '#d8c6a0', leaf: '#6b8a4f' },
   desert: { ...base, accent: '#c07a2c', paper: '#f0e1c0', paperDark: '#e2c88f', leaf: '#7a8a3a', water: '#3a7a8a' },
+  blank: { ...base, accent: '#8a8378', paper: '#f6f3ea', paperDark: '#e8e3d5', ink: '#2a2724', leaf: '#9a968a', water: '#6f8590' },
+  ward: { ...base, accent: '#8a6a4a', paper: '#efe3c8', paperDark: '#dccaa2', ink: '#2b2219', leaf: '#7f8a62', water: '#7a8f96' },
   sea: { ...base, accent: '#2e6f86', paper: '#ece8da', paperDark: '#d9d2b8', leaf: '#5f8a6a', water: '#2a6a85' },
   city: { ...base, accent: '#3f5a86', paper: '#ebe5d6', paperDark: '#d4cab3', leaf: '#5d7a62', water: '#23415c', ink: '#1b1a22' },
 }

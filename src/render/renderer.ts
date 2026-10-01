@@ -206,6 +206,8 @@ export class Renderer {
     else if (lvl.theme === 'desert') this.dunes(world, pal, st.t)
     else if (lvl.theme === 'city') this.city(world, pal, st.t)
     else if (lvl.theme === 'sea') this.seaside(world, pal, st.t)
+    else if (lvl.theme === 'blank') this.blank(world, pal, st.t)
+    else if (lvl.theme === 'ward') this.ward(pal, st.t)
     else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
@@ -416,6 +418,105 @@ export class Renderer {
     c.strokeStyle = pal.accent
     c.lineWidth = 1.6
     c.strokeRect(x, y, w, Math.min(h, 40))
+    c.restore()
+  }
+
+  /**
+   * The Blank: ghosts of every chapter, half rubbed out, flickering at the edge of being
+   * erased. Trees, shelves, gears, dunes, rooftops and waves, with eraser crumbs drifting down.
+   */
+  private blank(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    const par = 0.3
+    const left = this.camX * par
+    const H = this.worldH
+    c.save()
+    for (let i = 0; i < 18; i++) {
+      const px = hash(i + 200) * (world.level.width * par + this.viewW)
+      const x = this.camX + (px - left)
+      if (x < this.camX - 200 || x > this.camX + this.viewW + 200) continue
+      const base = H - 120 - hash(i + 201) * 140
+      const flicker = 0.06 + Math.max(0, Math.sin(t * 0.7 + i * 2.3)) * 0.07
+      pen.seed(i + 600)
+      c.setLineDash([10 + hash(i) * 20, 6 + hash(i + 1) * 14])
+      const o = { w: 1.4, alpha: flicker, plain: true }
+      switch (i % 6) {
+        case 0:
+          pen.stroke([P(x - 30, base), P(x, base - 90), P(x + 30, base)], { ...o, close: true })
+          break
+        case 1:
+          for (let k = 0; k < 3; k++) pen.line(x - 60, base - k * 40, x + 60, base - k * 40, o)
+          break
+        case 2:
+          pen.ellipse(x, base - 60, 50, 50, o)
+          break
+        case 3:
+          pen.stroke([P(x - 90, base), P(x - 30, base - 40), P(x + 30, base - 20), P(x + 90, base)], o)
+          break
+        case 4:
+          pen.stroke([P(x - 40, base), P(x - 40, base - 70), P(x, base - 100), P(x + 40, base - 70), P(x + 40, base)], o)
+          break
+        default:
+          pen.stroke([P(x - 80, base - 30), P(x - 40, base - 40), P(x, base - 30), P(x + 40, base - 40), P(x + 80, base - 30)], o)
+      }
+    }
+    c.setLineDash([])
+    // Eraser crumbs.
+    c.fillStyle = pal.accent
+    for (let i = 0; i < 24; i++) {
+      const x = this.camX + ((hash(i + 300) * this.viewW * 1.4 + t * 8) % (this.viewW + 40))
+      const y = this.camY + ((hash(i + 301) * VIEW_H + t * (12 + hash(i) * 20)) % (VIEW_H + 20))
+      c.globalAlpha = 0.18
+      c.fillRect(x, y, 3 + hash(i + 2) * 3, 2)
+    }
+    c.restore()
+  }
+
+  /** A hospital ward at night: a long wall, tall windows, beds and drip stands in the half dark. */
+  private ward(pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    const par = 0.5
+    const left = this.camX * par
+    const H = this.worldH
+    const dado = H - 230
+    c.save()
+    c.globalAlpha = 0.08
+    c.fillStyle = pal.ink
+    c.fillRect(this.camX - 20, dado, this.viewW + 40, H - dado)
+    c.restore()
+    pen.seed(700)
+    pen.line(this.camX - 20, dado, this.camX + this.viewW + 20, dado, { w: 1.2, alpha: 0.25, plain: true })
+    for (let px = Math.floor((left - 300) / 420) * 420; px <= left + this.viewW + 300; px += 420) {
+      const x = this.camX + (px - left)
+      const wy = dado - 220
+      c.save()
+      c.globalAlpha = 0.16
+      c.fillStyle = '#2f3f5f'
+      c.fillRect(x, wy, 120, 170)
+      c.globalAlpha = 0.35
+      c.fillStyle = '#f1ead2'
+      c.beginPath()
+      c.arc(x + 84, wy + 40, 10, 0, Math.PI * 2)
+      c.fill()
+      c.restore()
+      pen.seed(px)
+      pen.rect(x, wy, 120, 170, { w: 1.4, alpha: 0.3, plain: true })
+      pen.line(x + 60, wy, x + 60, wy + 170, { w: 1, alpha: 0.25, plain: true })
+      // A bed and a drip stand beneath it.
+      pen.rect(x - 20, dado + 60, 160, 30, { w: 1.2, alpha: 0.16, plain: true })
+      pen.line(x + 170, dado + 120, x + 170, dado - 10, { w: 1.2, alpha: 0.16, plain: true })
+      pen.ellipse(x + 176, dado, 6, 10, { w: 1, alpha: 0.16, plain: true })
+    }
+    // A slow drip, far away.
+    const k = (t * 0.6) % 1
+    c.save()
+    c.globalAlpha = 0.25 * (1 - k)
+    c.fillStyle = pal.water
+    c.beginPath()
+    c.arc(this.camX + this.viewW * 0.66, dado + 10 + k * 40, 2.5, 0, Math.PI * 2)
+    c.fill()
     c.restore()
   }
 
@@ -978,6 +1079,12 @@ export class Renderer {
     pen.line(x, y, x - 1, bottom, { w: 2 })
     pen.line(x + w, y, x + w + 1, bottom, { w: 2 })
     if (theme === 'blot') return
+    if (theme === 'blank') return
+    if (theme === 'ward') {
+      for (let px = Math.ceil(vx0 / 48) * 48; px < vx1; px += 48) pen.line(px, y + 2, px - 10, y + 40, { w: 1, alpha: 0.25, plain: true })
+      pen.line(Math.max(x, vx0), y + 20, Math.min(x + w, vx1), y + 20, { w: 1, alpha: 0.2, plain: true })
+      return
+    }
     if (theme === 'sea') {
       for (let px = Math.ceil(vx0 / 30) * 30; px < vx1 - 10; px += 30) {
         const k = hash(px)

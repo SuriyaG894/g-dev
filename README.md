@@ -4,15 +4,17 @@
 
 A mysterious puzzle adventure that runs in the browser. You're a small ink figure trapped in an unfinished storybook, and you change the world by editing its words. Pluck the **B** out of **BRIDGE** and it becomes a **RIDGE** you can climb. **FIRE** becomes a **FIR** tree. Put a stray **L** in front of **ADDER** and you have a **LADDER**.
 
-**v0.6 contains six chapters, 30 pages in all:**
+**v1.0 is the whole book: seven chapters, 35 pages, four endings, and a secret chapter.**
 - **Chapter I, *The Margin Woods*:** pluck and place letters; darkness; the first appearance of the Blot.
 - **Chapter II, *The Drowned Library*:** tides that raise and lower the water, things that float and swim, lost letters to catch, gold words nobody can change, the Librarian (a guardian you can only distract), and a vertical escape from a rising FLOOD.
 - **Chapter III, *The Clockwork Tower*:** **Then & Now**. Press **F** to turn time. Every page exists twice; bridges stand Then and are gone Now, iron rusts, and what you change in the past grows up (SEED → TREE, CUB → BEAR, SPARK → FIRE). At *Midnight*, the clock turns time by itself.
 - **Chapter IV, *The Mirror Desert*:** **Mirror & Swap**. ◐ Mirror reverses a word (RATS → STAR, WOLF → FLOW), ⇄ Swap trades two letters (SALT → SLAT, PALM ↔ LAMP). Backwards *mirages* are only reflections until you turn them round, a Sphinx asks riddles you answer by making words, and a sandstorm chases you, unless you read the signs.
 - **Chapter V, *The City of Ink*:** **Name**. Adjectives are words too: ⤴ lift FROZEN off a sign and ✒ name the canal with it, and the water turns to ice. Respell a name (MEAT → TAME) to calm a lion, take BROKEN off a lamp to light the street, and name *yourself*: LIT YOU glows, TINY YOU fits through a tiny door. In the finale, even the Blot can be named.
 - **Chapter VI, *The Folded Sea*:** **Fold**. ⧉ Fold two words into one: RAIN + BOW → a RAINBOW bridge, JELLY + FISH → a bouncy JELLYFISH, HORSE + SEA → a SEAHORSE to ride. Pages have a *crease*: words facing each other across it can be folded together however far apart they are, and every word shows faintly through the paper, back to front, where it would touch. In the finale you fold INK into the Blot and it dries into an INKBLOT: only a picture.
+- **Chapter VII, *The Blank*:** every power at once, while the book is being unwritten: write lost letters back, plant a seed in the past where Now has been rubbed out, read a nonsense name in a mirror (NEPO GATE), fold facing pages into a STAIRCASE and a BOOKMARK, and outrun the Blot to page two hundred and twelve, where you write the last word yourself. HOPE, HOME and OPEN each end the book differently; a fourth, true ending needs every diary page.
+- **★ *The Past Page* (secret):** the title can be rewritten. One letter changed opens a short chapter set where the book was written.
 
-Six hidden diary pages continue the Author's story.
+Eight hidden diary pages continue the Author's story.
 
 ## Play locally
 
@@ -69,7 +71,7 @@ You can also deploy from the terminal: `npm i -g vercel && vercel --prod`.
 |---|---|
 | Rules, physics, edits (no DOM, fully testable) | `src/game/world.ts`, `src/game/ink.ts` |
 | Words and what they become | `src/game/lexicon.ts` |
-| Pages | `src/levels/chapter1.ts` … `chapter6.ts` |
+| Pages | `src/levels/chapter1.ts` … `chapter7.ts`, `pastpage.ts` |
 | Hand-drawn renderer (Canvas 2D, wobbly "boiling" ink lines) | `src/render/` |
 | Procedural sound and music (Web Audio, no audio files) | `src/audio/sound.ts` |
 | Menus, HUD, quill panel, margin notes | `src/ui/` |

@@ -113,6 +113,26 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-7',
+    title: 'A page from the stuck drawer',
+    body: [
+      'I stopped writing on page two hundred and twelve.',
+      'Every time I tried to write the end, the ink spread, and spread, until there was nothing on the page but black.',
+      'I think that is what the Blot is. What an ending looks like, when nobody will write it.',
+      '— A.',
+    ],
+  },
+  {
+    id: 'diary-8',
+    title: 'The page under her pillow',
+    body: [
+      'This one isn’t mine. It’s Mira’s, in pencil.',
+      '“Dear whoever finishes the book. Don’t let it end sad. And if it does, write it again.”',
+      'In the corner she has drawn a little figure made of ink, with a red scarf.',
+      '— M.',
+    ],
+  },
 ]
 
 export const CHAPTER_ENDS: Record<number, string[]> = {
@@ -152,6 +172,73 @@ export const CHAPTER_ENDS: Record<number, string[]> = {
     'Then it is only ink again.',
     'After the sea, there are no more pages. Only white.',
   ],
+  8: [
+    'The pencil drawing smiles up from the back of the card.',
+    'Far ahead, on page two hundred and twelve, the Blot shivers, and does not know why.',
+    'Endings can be changed, if they are written in pencil.',
+    'Now you know what the last word should be.',
+  ],
+}
+
+/** The last page: you write the last word, and the word decides how the book ends. */
+export const LAST_PAGE = [
+  'Page two hundred and twelve is blank.',
+  'The Blot has stopped at its edge, as if it were waiting to see what you will write.',
+  'The Author’s pen is lying on the page. It still has ink in it.',
+  'Write the last word.',
+]
+
+export interface Ending {
+  title: string
+  lines: string[]
+}
+
+export const ENDINGS: Record<string, Ending> = {
+  HOPE: {
+    title: 'The Hopeful Ending',
+    lines: [
+      'You write HOPE, and the page holds its breath.',
+      'The Blot creeps to the edge of the word, and stops. It is only ink. It has always been only ink.',
+      'Somewhere outside the book, a pencil is picked up again.',
+      'The Author has started a new page.',
+    ],
+  },
+  HOME: {
+    title: 'The Homeward Ending',
+    lines: [
+      'You write HOME.',
+      'The pages turn back, all of them, faster and faster, to the Margin Woods, where you first woke up.',
+      'The bear is a bear again. The bridge is a bridge. Everything remembers its first word.',
+      'The book closes, gently, like a door at night.',
+    ],
+  },
+  OPEN: {
+    title: 'The Open Ending',
+    lines: [
+      'You write OPEN.',
+      'The last page doesn’t end. It goes on, white and wide, and the Blot draws back from it.',
+      'The book will never be finished. Whoever reads it next can write the next word.',
+      'Somewhere, someone turns the page.',
+    ],
+  },
+  MIRA: {
+    title: 'The True Ending',
+    lines: [
+      'You write MIRA.',
+      'The Blot shudders, and folds, and is a drawing in pencil of a girl with her arms out, a little smudged.',
+      'It was never eating the book. It was the shape grief makes, when it has no word to be.',
+      '“Endings can’t be changed,” the Author told her, once. “Then write it in pencil,” she said.',
+      'The Author did. You are what they wrote. And now the book is finished.',
+    ],
+  },
+}
+
+/** What the Author says to a last word that isn't an ending. */
+export const NOT_AN_ENDING = {
+  nope: 'Not that. Not after all this.',
+  word: 'That’s a word. It isn’t an ending.',
+  nonsense: 'That isn’t a word. The Blot would like that.',
+  short: 'An ending needs more than that.',
 }
 
 export function pick<T>(list: readonly T[]): T {

@@ -1555,8 +1555,10 @@ export class World {
       // Clamp against the zone we started the step in; re-testing after moving would miss the top edge.
       const zone = climbZone
       if (zone && p.y < zone.y + 1) {
-        // Keep the feet just inside the zone, so stepping sideways off the top still counts as climbing.
-        p.y = zone.y + 1
+        // Keep the feet just inside the zone, so stepping sideways off the top still counts as climbing,
+        // unless that would push them into ground they have just stepped up onto.
+        const box = { x: p.x - this.pw / 2, y: zone.y + 1 - this.ph, w: this.pw, h: this.ph }
+        if (!this.solids().some((so) => overlap(box, so.r))) p.y = zone.y + 1
         if (p.vy < 0) p.vy = 0
       }
     }

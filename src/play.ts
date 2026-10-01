@@ -4,8 +4,9 @@ import { LEXICON } from './game/lexicon'
 import type { LevelDef, NoteTrigger } from './game/types'
 import { World, type EditRefusal } from './game/world'
 import { Particles } from './render/particles'
+import { SECRET, chapterLabel } from './levels'
 import { EVENT_NOTES, pick } from './story/text'
-import { h, roman, words } from './ui/dom'
+import { h, words } from './ui/dom'
 import { Hud } from './ui/hud'
 import { QuillPanel } from './ui/quill'
 
@@ -554,7 +555,7 @@ export class Play {
     const card = h(
       'div',
       { class: 'titlecard', attrs: { 'aria-live': 'polite' } },
-      h('div', { class: 'tc-chapter', text: `Chapter ${roman(lvl.chapter)} · Page ${words(lvl.page)}` }),
+      h('div', { class: 'tc-chapter', text: `${lvl.chapter === SECRET.number ? 'The Past Page' : `Chapter ${chapterLabel(lvl.chapter)}`} · Page ${words(lvl.page)}` }),
       h('div', { class: 'tc-title', text: lvl.title }),
       h('div', { class: 'tc-sub', text: lvl.subtitle }),
     )

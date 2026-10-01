@@ -54,8 +54,8 @@ A mysterious puzzle adventure that runs in the browser. You play a small ink fig
 | 4 | **The Mirror Desert** ✅ | Mirror & Swap | Backwards mirages (`EGDIRB→BRIDGE`), `LEMON→MELON`, `PALM↔LAMP`, a riddling Sphinx (`EMIT→TIME`, `ICON→COIN`), a sandstorm you can `STOP` |
 | 5 | **The City of Ink** ✅ | Name | Lift an adjective off one thing and name another: `FROZEN CANAL`, `TALL LADDER`, `MEAT→TAME LION`, `BROKEN LAMP→BROKEN GATE`, `LIT YOU`, `GIANT KEY`, `TINY YOU` through a tiny door, and a chase where you name the Blot `SLOW` |
 | 6 | **The Folded Sea** ✅ | Fold | Join two words: `RAIN+BOW`, `JELLY+FISH`, `FIRE+FLY`, `SEA+HORSE`. Words facing each other across the page's crease fold however far apart they are (shown through the paper, back to front); *The Folded Sky* folds the ocean onto the sky; the finale folds `INK` into the Blot: an `INKBLOT` |
-| 7 | **The Blank** | All powers | The Blot chase, then writing the ending |
-| ★ | **The Past Page** (secret) | — | Unlocked by editing the title screen. Shows the Author's past |
+| 7 | **The Blank** ✅ | All powers | Reprises with a twist (`RIDGE+B`, Now erased, `NEPO GATE`, `STAIR+CASE`, `BOOK+MARK`), the Blot chase to page 212, then you write the last word: `HOPE` / `HOME` / `OPEN`, or `MIRA` with every diary page |
+| ★ | **The Past Page** (secret) ✅ | Pluck, Place, Then & Now | Unlocked by rewriting the title's L as P. The ward, a clock four minutes fast, and `END + M = MEND` |
 
 **Each chapter:** 4 puzzle levels, 1 set-piece level (a chase or boss), 1 hidden diary page, and its own music layer.
 
@@ -126,7 +126,7 @@ g-dev/
 | **2. Chapter 1** | 5 Margin Woods levels, title screen, saving, page-turn transition | **v0.1 public release** | ✅ |
 | **3. Polish** | Ink particles, animations, audio, diary pages, margin notes | It feels like a finished game | 🟡 mostly done early (particles, procedural audio, diary, notes) |
 | **4. Chapters 2–3** | Place, page flipping, the Blot enemy | **v0.2** | ✅ Chapter II (v0.2) and Chapter III (v0.3) done |
-| **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | 🟡 Chapters IV–VI done (v0.4–v0.6); Chapter VII next |
+| **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | ✅ v1.0: all seven chapters, four endings and the secret chapter |
 | **6. Launch polish** | Mobile tuning, accessibility, PWA, share image, analytics | Ready for the public | 🟡 easy-read font, reduced motion, touch controls and share button already in |
 
 ### Accessibility

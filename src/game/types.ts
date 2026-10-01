@@ -12,7 +12,7 @@ export interface Rect {
 
 export type Power = 'pluck' | 'place' | 'mirror' | 'name' | 'fold'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert' | 'city' | 'sea'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert' | 'city' | 'sea' | 'blank' | 'ward'
 
 /** Then or Now. Pages in the Clockwork Tower exist in both. */
 export type Era = 'past' | 'present'

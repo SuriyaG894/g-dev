@@ -54,6 +54,10 @@ const SCALES: Record<Theme, number[]> = {
   desert: [146.83, 155.56, 185, 196, 220, 233.08, 261.63, 293.66],
   // Lydian: bright, a little uncanny. Streetlamps and wet cobbles.
   // Mixolydian, rolling like a tide.
+  // Sparse and high: most of the notes have been rubbed out.
+  blank: [261.63, 329.63, 392, 523.25, 659.25],
+  // A music box, slowly, in the ward at night.
+  ward: [196, 246.94, 293.66, 392, 493.88, 587.33],
   sea: [146.83, 164.81, 185, 196, 220, 246.94, 261.63, 293.66],
   city: [130.81, 146.83, 164.81, 185, 196, 220, 246.94, 261.63],
 }

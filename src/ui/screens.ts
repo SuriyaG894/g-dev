@@ -1,7 +1,8 @@
 import type { App } from '../app'
 import type { LevelDef } from '../game/types'
-import { ALL_LEVELS, CHAPTERS, UPCOMING, chapterOf, type ChapterInfo } from '../levels'
-import { CHAPTER_ENDS, DIARY, PROLOGUE } from '../story/text'
+import { isRealWord } from '../game/lexicon'
+import { ALL_LEVELS, CHAPTERS, SECRET, UPCOMING, chapterLabel, chapterOf, type ChapterInfo } from '../levels'
+import { CHAPTER_ENDS, DIARY, ENDINGS, LAST_PAGE, NOT_AN_ENDING, PROLOGUE } from '../story/text'
 import { button, h, roman, words } from './dom'
 
 // ------------------------------------------------------------------- title
@@ -28,26 +29,66 @@ export function titleScreen(app: App): HTMLElement {
       void span.offsetWidth
       span.classList.add('wobble')
       if (i === lIndex) {
-        app.sound.play('refuse')
         app.secret('title-L')
-        app.notes.say(
-          app.save.completed.includes('1-5')
-            ? 'Soon. When you can write, try this letter again. The past is waiting.'
-            : 'Not yet. Come back when you can write.',
-          { urgent: true },
-        )
+        if (!app.save.completed.includes('1-5')) {
+          app.sound.play('refuse')
+          app.notes.say('Not yet. Come back when you can write.', { urgent: true })
+        } else if (app.pastPageOpen) {
+          app.sound.play('chime')
+          app.notes.say('The past is open. It’s in the book, after the last chapter.', { urgent: true })
+        } else {
+          app.sound.play('pluck')
+          picker.classList.toggle('open')
+          picker.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+        }
       } else app.sound.play('pluck')
     })
     word.append(span)
   })
-  if (app.save.completed.includes('1-5')) letters.classList.add('stirring')
+  if (app.save.completed.includes('1-5') && !app.pastPageOpen) letters.classList.add('stirring')
+
+  // Rewriting the title: THE ?AST PAGE. One letter opens the past.
+  const lSpan = () => letters.querySelector<HTMLElement>('.tl-l')
+  const picker = h('div', { class: 'letter-picker', attrs: { role: 'group', 'aria-label': 'Write a letter in place of the L' } })
+  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+    picker.append(
+      button(ch, () => {
+        const span = lSpan()
+        if (!span) return
+        const word = `${ch}AST`
+        span.textContent = ch
+        span.classList.remove('wobble')
+        void span.offsetWidth
+        span.classList.add('wobble')
+        if (ch === 'P') {
+          app.sound.play('diary')
+          app.secret('past-page')
+          picker.classList.remove('open')
+          letters.classList.remove('stirring')
+          letters.classList.add('past')
+          letters.setAttribute('aria-label', 'The Past Page')
+          app.notes.say('THE PAST PAGE. It was there all along, one letter away. It’s in the book now.', { urgent: true })
+          menu.prepend(button('★ The Past Page', () => app.showBook(SECRET), 'btn primary'))
+          return
+        }
+        app.sound.play(isRealWord(word) ? 'whisper' : 'refuse')
+        app.notes.say(ch === 'L' ? 'The last page. Yes. That’s the one you know.' : isRealWord(word) ? `THE ${word} PAGE? No. But close.` : 'That isn’t a word.', { urgent: true })
+        window.setTimeout(() => {
+          if (span.textContent === ch) span.textContent = 'L'
+        }, 1400)
+      }, 'lp-letter', { 'aria-label': `Write ${ch}` }),
+    )
+  }
 
   const next = app.nextUnfinished()
   const started = app.save.completed.length > 0 || app.save.seenPrologue
   const menu = h(
     'div',
     { class: 'menu' },
-    button(started ? `Continue · ${next.title}` : 'Begin reading', () => app.begin(), 'btn primary'),
+    app.save.endings.length && app.save.completed.length >= ALL_LEVELS.length
+      ? button('Write the last page again', () => app.showLastPage(), 'btn primary')
+      : button(started ? `Continue · ${next.title}` : 'Begin reading', () => app.begin(), 'btn primary'),
+    app.pastPageOpen ? button('★ The Past Page', () => app.showBook(SECRET), 'btn') : null,
     button('Pages', () => app.showBook(), 'btn'),
     button('Diary', () => app.showDiary(() => app.showTitle()), 'btn'),
     button('Settings', () => app.showSettings(() => app.showTitle()), 'btn'),
@@ -57,9 +98,13 @@ export function titleScreen(app: App): HTMLElement {
     { class: 'screen title-screen' },
     h('div', { class: 'title-kicker', text: 'an unfinished storybook' }),
     letters,
+    picker,
     h('p', { class: 'tagline', text: 'Every world is written. Every word can be unwritten.' }),
     menu,
-    h('div', { class: 'title-foot', text: `v0.6 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
+    h('div', {
+      class: 'title-foot',
+      text: `v1.0 · Seven chapters${app.pastPageOpen ? ', and a secret' : ''}${app.save.endings.length ? ` · Endings found: ${app.save.endings.length} of ${Object.keys(ENDINGS).length}` : ''} · Headphones recommended`,
+    }),
   )
 }
 
@@ -67,6 +112,8 @@ export function titleScreen(app: App): HTMLElement {
 
 /** A page is open once the page before it (in reading order) is finished. */
 export function isOpen(app: App, lvl: LevelDef): boolean {
+  const s = SECRET.levels.indexOf(lvl)
+  if (s >= 0) return app.pastPageOpen && (s === 0 || app.save.completed.includes(lvl.id) || app.save.completed.includes(SECRET.levels[s - 1].id))
   const i = ALL_LEVELS.indexOf(lvl)
   return i === 0 || app.save.completed.includes(lvl.id) || app.save.completed.includes(ALL_LEVELS[i - 1].id)
 }
@@ -94,15 +141,15 @@ export function bookScreen(app: App, chapter?: ChapterInfo): HTMLElement {
   const tabs = h(
     'div',
     { class: 'chapter-tabs', attrs: { role: 'tablist' } },
-    ...CHAPTERS.map((c) => {
+    ...[...CHAPTERS, ...(app.pastPageOpen ? [SECRET] : [])].map((c) => {
       const open = isOpen(app, c.levels[0])
-      const b = button(`${roman(c.number)} · ${c.title}`, () => app.showBook(c, true), 'tab' + (c === ch ? ' on' : ''), {
+      const b = button(`${chapterLabel(c.number)} · ${c.title}`, () => app.showBook(c, true), 'tab' + (c === ch ? ' on' : '') + (c === SECRET ? ' secret' : ''), {
         role: 'tab',
         'aria-selected': String(c === ch),
       })
       if (!open) {
         b.disabled = true
-        b.textContent = `${roman(c.number)} · locked`
+        b.textContent = `${chapterLabel(c.number)} · locked`
       }
       return b
     }),
@@ -122,7 +169,7 @@ export function bookScreen(app: App, chapter?: ChapterInfo): HTMLElement {
       h(
         'div',
         { class: 'book-left' },
-        h('div', { class: 'bl-kicker', text: `Chapter ${roman(ch.number)}` }),
+        h('div', { class: 'bl-kicker', text: ch === SECRET ? 'The secret chapter' : `Chapter ${roman(ch.number)}` }),
         h('h2', { text: ch.title }),
         h('p', { text: ch.blurb }),
         h('p', { class: 'bl-power', text: `Ink powers: ${ch.power}` }),
@@ -295,7 +342,7 @@ export function chapterEndScreen(app: App, chapter: ChapterInfo): HTMLElement {
   const card = h(
     'div',
     { class: 'card chapter-card' },
-    h('div', { class: 'muted', text: `Chapter ${roman(chapter.number)} complete` }),
+    h('div', { class: 'muted', text: chapter === SECRET ? 'The Past Page, read' : `Chapter ${roman(chapter.number)} complete` }),
     h('h2', { text: chapter.title }),
     h('p', { text: `Diary pages found: ${found} of ${DIARY.length}` }),
     next
@@ -303,7 +350,7 @@ export function chapterEndScreen(app: App, chapter: ChapterInfo): HTMLElement {
       : upcoming
         ? h('p', { class: 'muted', text: `Chapter ${roman(upcoming.number)}, ${upcoming.title}, is still being written.` })
         : null,
-    h('p', { class: 'whisper', text: 'Something on the title page has changed.' }),
+    chapter === SECRET ? null : h('p', { class: 'whisper', text: 'Something on the title page has changed.' }),
     h(
       'div',
       { class: 'row' },
@@ -315,4 +362,95 @@ export function chapterEndScreen(app: App, chapter: ChapterInfo): HTMLElement {
   )
   card.style.animationDelay = `${0.6 + text.length * 1.8}s`
   return h('div', { class: 'screen dark-screen chapter-end' }, h('div', { class: 'dark-lines' }, ...lines), card)
+}
+
+// --------------------------------------------------------------- the end
+
+/** Page two hundred and twelve: write the last word. */
+export function lastPageScreen(app: App): HTMLElement {
+  const lines = LAST_PAGE.map((l, i) => {
+    const p = h('p', { text: l })
+    p.style.animationDelay = `${0.6 + i * 1.6}s`
+    return p
+  })
+  const all = DIARY.every((d) => app.save.diary.includes(d.id))
+  const tiles = [...'HOPEMN', ...(all ? 'IRA' : '')]
+  const word: number[] = []
+  const slot = h('div', { class: 'end-slot', attrs: { 'aria-live': 'polite', 'aria-label': 'The last word' } })
+  const msg = h('p', { class: 'end-msg', text: ' ' })
+  const tileRow = h('div', { class: 'end-tiles', attrs: { role: 'group', 'aria-label': 'Letters' } })
+  const buttons = tiles.map((ch, i) => {
+    const b = button(ch, () => {
+      if (word.includes(i) || word.length >= 5) return
+      word.push(i)
+      app.sound.play('place')
+      draw()
+    }, 'end-tile' + (i >= 6 ? ' gold' : ''), { 'aria-label': `Write ${ch}` })
+    tileRow.append(b)
+    return b
+  })
+  const draw = () => {
+    slot.replaceChildren(...Array.from({ length: Math.max(4, word.length) }, (_, k) => h('span', { class: 'end-cell' + (word[k] !== undefined ? ' full' : ''), text: word[k] !== undefined ? tiles[word[k]] : '' })))
+    buttons.forEach((b, i) => (b.disabled = word.includes(i)))
+    msg.textContent = ' '
+  }
+  const text = () => word.map((i) => tiles[i]).join('')
+  const write = () => {
+    const w = text()
+    if (ENDINGS[w] && (w !== 'MIRA' || all)) return app.finishBook(w)
+    app.sound.play('refuse')
+    msg.textContent = w.length < 3 ? NOT_AN_ENDING.short : w === 'NOPE' ? NOT_AN_ENDING.nope : isRealWord(w) ? NOT_AN_ENDING.word : NOT_AN_ENDING.nonsense
+  }
+  draw()
+  const card = h(
+    'div',
+    { class: 'card end-card' },
+    slot,
+    tileRow,
+    msg,
+    h(
+      'div',
+      { class: 'row' },
+      button('⌫', () => {
+        word.pop()
+        app.sound.play('pluck')
+        draw()
+      }, 'btn', { 'aria-label': 'Rub out the last letter' }),
+      button('Write it', write, 'btn primary'),
+    ),
+    all ? h('p', { class: 'whisper', text: 'Every diary page is found. There are three letters more than there were.' }) : null,
+  )
+  card.style.animationDelay = `${0.6 + LAST_PAGE.length * 1.6}s`
+  return h('div', { class: 'screen dark-screen chapter-end last-page' }, h('div', { class: 'dark-lines' }, ...lines), card)
+}
+
+/** How the book ends, for the word you wrote. */
+export function endingScreen(app: App, word: string): HTMLElement {
+  const ending = ENDINGS[word]
+  const lines = ending.lines.map((l, i) => {
+    const p = h('p', { text: l })
+    p.style.animationDelay = `${0.6 + i * 2}s`
+    return p
+  })
+  const total = Object.keys(ENDINGS).length
+  const all = DIARY.every((d) => app.save.diary.includes(d.id))
+  const card = h(
+    'div',
+    { class: 'card chapter-card end-card' },
+    h('div', { class: 'the-end', text: 'The End' }),
+    h('h2', { text: ending.title }),
+    h('p', { class: 'muted', text: `Endings found: ${app.save.endings.length} of ${total}` }),
+    word === 'MIRA'
+      ? h('p', { class: 'whisper', text: 'Thank you for reading.' })
+      : h('p', { class: 'whisper', text: all ? 'There is one more word. You have every letter of it now.' : `There is another ending. It needs every diary page (${app.save.diary.length} of ${DIARY.length}).` }),
+    h(
+      'div',
+      { class: 'row' },
+      button('Share your ending', () => app.share(`I finished The Last Page with the ${ending.title.toLowerCase()}. What will you write on the last page?`), 'btn primary'),
+      button('Write it again', () => app.showLastPage(), 'btn'),
+      button('Title', () => app.showTitle(), 'btn'),
+    ),
+  )
+  card.style.animationDelay = `${0.6 + ending.lines.length * 2}s`
+  return h('div', { class: 'screen dark-screen chapter-end' + (word === 'MIRA' ? ' true-end' : '') }, h('div', { class: 'dark-lines' }, ...lines), card)
 }
