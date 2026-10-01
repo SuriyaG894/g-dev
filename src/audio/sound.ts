@@ -35,6 +35,7 @@ export type Sfx =
   | 'lift'
   | 'name'
   | 'bounce'
+  | 'fold'
 
 const SCALES: Record<Theme, number[]> = {
   // A minor pentatonic, gentle.
@@ -52,6 +53,8 @@ const SCALES: Record<Theme, number[]> = {
   // Phrygian dominant: heat and distance.
   desert: [146.83, 155.56, 185, 196, 220, 233.08, 261.63, 293.66],
   // Lydian: bright, a little uncanny. Streetlamps and wet cobbles.
+  // Mixolydian, rolling like a tide.
+  sea: [146.83, 164.81, 185, 196, 220, 246.94, 261.63, 293.66],
   city: [130.81, 146.83, 164.81, 185, 196, 220, 246.94, 261.63],
 }
 
@@ -273,6 +276,11 @@ export class Sound {
       case 'name':
         ;[587.33, 880, 1174.66].forEach((f, i) => this.tone(f, 0.6, { at: i * 0.06, gain: 0.06, type: i === 1 ? 'triangle' : 'sine' }))
         this.hiss(0.15, { freq: 2500, q: 2, gain: 0.08 })
+        break
+      case 'fold':
+        this.hiss(0.5, { freq: 900, q: 0.6, gain: 0.2, to: 2600 })
+        this.tone(330, 0.6, { type: 'triangle', gain: 0.07, to: 660, at: 0.15 })
+        this.tone(495, 0.7, { gain: 0.05, at: 0.3 })
         break
       case 'bounce':
         this.tone(180, 0.25, { to: 520, gain: 0.12, type: 'triangle' })

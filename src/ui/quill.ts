@@ -12,12 +12,14 @@ export interface QuillActions {
   lift: (tagId: string) => void
   /** Names the open word with the adjective in the quill. */
   name: () => void
+  /** Folds `take` into `keep`. */
+  fold: (keep: string, take: string, order: 'before' | 'after') => void
   /** Switches the card to another word (a thing's adjective, say). */
   open: (wordId: string) => void
   close: () => void
 }
 
-type Tool = 'pluck' | 'swap'
+type Tool = 'pluck' | 'swap' | 'fold'
 
 function off(b: HTMLButtonElement, disabled: boolean): HTMLButtonElement {
   b.disabled = disabled
@@ -65,7 +67,12 @@ export class QuillPanel {
     // The Reader and the Blot keep their spelling: they can only be named.
     const fixed = !!ws.def.nameOnly
     const mirrors = world.level.powers.includes('mirror') && !fixed
-    if (!mirrors) this.tool = 'pluck'
+    const folds = world.canFold && ws.role !== 'tag' && ws.role !== 'reader'
+    if (this.tool === 'swap' && !mirrors) this.tool = 'pluck'
+    if (this.tool === 'fold' && !folds) this.tool = 'pluck'
+    // The Blot's only edit is a fold.
+    if (fixed && folds) this.tool = 'fold'
+    const folding = this.tool === 'fold'
     const swapping = this.tool === 'swap'
     const canPlace = !fixed && !swapping && world.canPlace && world.quill.length > 0
     const letter = world.quill[this.sel]
@@ -132,22 +139,49 @@ export class QuillPanel {
       e.stopPropagation()
     })
 
-    const tools = mirrors
-      ? h(
-          'div',
-          { class: 'qp-tools', attrs: { role: 'toolbar', 'aria-label': 'Ink tools' } },
-          this.toolButton('✒ Pluck', 'pluck', world),
-          this.toolButton('⇄ Swap', 'swap', world),
-          (() => {
-            const b = button('◐ Mirror', () => this.actions.mirror(), 'qp-tool', { 'aria-label': 'Mirror the whole word' })
-            hover(b, () => ink.mirror(text))
-            return b
-          })(),
+    const tools =
+      mirrors || folds
+        ? h(
+            'div',
+            { class: 'qp-tools', attrs: { role: 'toolbar', 'aria-label': 'Ink tools' } },
+            fixed ? null : this.toolButton('✒ Pluck', 'pluck', world),
+            mirrors ? this.toolButton('⇄ Swap', 'swap', world) : null,
+            mirrors
+              ? (() => {
+                  const b = button('◐ Mirror', () => this.actions.mirror(), 'qp-tool', { 'aria-label': 'Mirror the whole word' })
+                  hover(b, () => ink.mirror(text))
+                  return b
+                })()
+              : null,
+            folds ? this.toolButton('⧉ Fold', 'fold', world) : null,
+          )
+        : null
+
+    // Folding: every word this one can touch, and the two ways to fold them.
+    const foldList = folding ? h('div', { class: 'qp-folds', attrs: { role: 'group', 'aria-label': 'Fold with' } }) : null
+    if (foldList) {
+      const options = world.foldOptions(this.wordId)
+      for (const { keep, take } of options) {
+        const k = world.words.get(keep)!.text
+        const t = world.words.get(take)!.text
+        const partner = keep === this.wordId ? take : keep
+        const across = world.meetsAcross(keep, take) && !world.entityOf(partner)?.kind.chaser ? ' (across the crease)' : ''
+        const opt = (order: 'before' | 'after') => {
+          const result = order === 'before' ? t + k : k + t
+          const b = button(result, () => this.actions.fold(keep, take, order), 'qp-fold-btn', { 'aria-label': `Fold into ${result}` })
+          hover(b, () => result)
+          return b
+        }
+        foldList.append(
+          h('div', { class: 'qp-fold' }, h('span', { class: 'qp-fold-with', text: `with ${world.words.get(partner)!.text}${across}` }), opt('before'), opt('after')),
         )
-      : null
+      }
+      if (!options.length) foldList.append(h('div', { class: 'qp-fold-none', text: 'Nothing to fold with. Words must be near each other, or face each other across the crease.' }))
+    }
 
     let help: string
-    if (fixed) help = world.carriedText ? `This word can’t be respelled. But it can be named ${world.carriedText}.` : 'This word can’t be respelled, only named. Lift a name from something first.'
+    if (folding) help = 'Fold two words into one. One stays where it is; the other is folded into it.'
+    else if (fixed) help = world.carriedText ? `This word can’t be respelled. But it can be named ${world.carriedText}.` : 'This word can’t be respelled, only named. Lift a name from something first.'
     else if (ws.role === 'tag') help = 'A name. Lift it off to give it to something else, or respell it like any word.'
     else if (swapping) help = this.first === null ? 'Pick a letter, then another, to trade their places.' : `Now pick the letter to trade with ${text[this.first]}.`
     else if (!world.canPlace) help = 'Click a letter to pluck it out. Nonsense turns to wild ink.'
@@ -155,7 +189,7 @@ export class QuillPanel {
     else help = `Pluck a letter, or click a + to write ${letter} into the word.`
 
     const quillRow =
-      world.canPlace && !swapping && !fixed
+      world.canPlace && !swapping && !fixed && !folding
         ? h(
             'div',
             { class: 'qp-quill' },
@@ -180,8 +214,8 @@ export class QuillPanel {
       button('×', () => this.actions.close(), 'qp-close', { 'aria-label': 'Close (Esc)' }),
       h('div', { class: 'qp-desc', text: ent.kind.desc }),
       world.canName ? this.names(world, this.wordId) : null,
-      fixed ? null : tools,
-      row,
+      tools,
+      folding ? foldList : row,
       preview,
       quillRow,
       h('div', { class: 'qp-help', text: help }),
@@ -191,6 +225,7 @@ export class QuillPanel {
     this.root.append(el)
     const focus =
       el.querySelector<HTMLButtonElement>('.qp-letter.picked') ??
+      (folding ? el.querySelector<HTMLButtonElement>('.qp-tool.on') : null) ??
       (world.carriedText ? el.querySelector<HTMLButtonElement>('.qp-name-btn.on') : null) ??
       el.querySelector<HTMLButtonElement>('.qp-letter:not([disabled]):not(.static)') ??
       el.querySelector<HTMLButtonElement>('.qp-name-btn:not([disabled])')

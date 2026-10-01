@@ -62,6 +62,16 @@ export class Particles {
     this.add({ kind: 'letter', x, y, vx: (Math.random() - 0.5) * 40, vy: -90, text, color, gravity: 60, life: 1.1, r: 22 })
   }
 
+  /** A word's letters flying from one place to another, as it is folded in. */
+  trail(fx: number, fy: number, x: number, y: number, text: string, color = '#1e1914'): void {
+    const T = 0.55
+    for (let i = 0; i < text.length; i++) {
+      const sx = fx + (i - text.length / 2) * 14
+      const life = T + i * 0.04
+      this.add({ kind: 'letter', x: sx, y: fy, vx: (x - sx) / life, vy: (y - fy) / life, text: text[i], color, gravity: 0, life, r: 24 })
+    }
+  }
+
   update(dt: number): void {
     for (const p of this.list) {
       p.life -= dt

@@ -59,7 +59,7 @@ export function titleScreen(app: App): HTMLElement {
     letters,
     h('p', { class: 'tagline', text: 'Every world is written. Every word can be unwritten.' }),
     menu,
-    h('div', { class: 'title-foot', text: `v0.5 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
+    h('div', { class: 'title-foot', text: `v0.6 · Chapters I–${roman(CHAPTERS.length)} of VII · Headphones recommended` }),
   )
 }
 
@@ -213,6 +213,7 @@ export function settingsScreen(app: App, back: () => void): HTMLElement {
         h('p', { text: 'F (or Q): turn time, Then ↔ Now, in the Clockwork Tower' }),
         h('p', { text: 'In the Mirror Desert, the quill can ⇄ swap two letters or ◐ mirror a whole word' }),
         h('p', { text: 'In the City of Ink, ⤴ lift a name (FROZEN, TALL…) off one thing and ✒ name another with it. Y: your own word' }),
+        h('p', { text: 'On the Folded Sea, ⧉ fold two words into one (SUN + FLOWER). Words facing each other across the crease can fold however far apart they are' }),
       ),
       reset,
     ),

@@ -116,7 +116,7 @@ export const LEXICON: Record<string, Kind> = {
 
   // Chapter II: The Drowned Library
   TRAIN: { art: 'train', w: 70, h: 24, vehicle: true, desc: 'A little train. It still runs.' },
-  RAIN: { art: 'rain', w: 420, h: 100, tide: -160, desc: 'Rain, indoors. The water rises.' },
+  RAIN: { art: 'rain', w: 420, h: 100, tide: -160, desc: 'Rain. Wherever it falls, the water rises.' },
   DRAIN: { art: 'drain', w: 80, h: 20, tide: 320, desc: 'A drain. Down it all goes.' },
   DRAFT: { art: 'draft', w: 120, h: 50, desc: 'A cold draft over the water.' },
   RAFT: { art: 'raft', w: 130, h: 26, vehicle: true, floats: 8, desc: 'A raft. It floats wherever the water is.' },
@@ -196,6 +196,27 @@ export const LEXICON: Record<string, Kind> = {
   DOOR: { art: 'door', w: 46, h: 90, opens: true, desc: 'A door. Doors are for going through.' },
   LIFT: { art: 'lift', w: 90, h: 16, vehicle: true, desc: 'A lift. Up, and down, and up.' },
   BED: { art: 'bed', w: 110, h: 34, platform: true, desc: 'A bed, out in the street. Nobody asks.' },
+
+  // Chapter VI: The Folded Sea. Two words, folded together, make a third.
+  SEA: { art: 'wave', w: 70, h: 26, liquid: true, desc: 'A little piece of the sea, washed up.' },
+  WEED: { art: 'weed', w: 24, h: 30, desc: 'A wisp of weed.' },
+  SEAWEED: { art: 'seaweed', w: 40, h: 320, climb: true, desc: 'Seaweed, tall as a mast. Climbable.' },
+  BOW: { art: 'bow', w: 40, h: 26, desc: 'A ribbon bow, washed up on the sand.' },
+  RAINBOW: { art: 'rainbow', w: 460, h: 24, platform: true, desc: 'A rainbow, low enough to walk on.' },
+  JELLY: { art: 'jelly', w: 40, h: 30, desc: 'A jelly on a plate, wobbling.' },
+  FISH: { art: 'fish', w: 40, h: 20, alive: true, desc: 'A fish, out of the water and not minding.' },
+  JELLYFISH: { art: 'jellyfish', w: 70, h: 50, bouncy: true, platform: true, alive: true, desc: 'A jellyfish. Very bouncy, and only a little stingy.' },
+  STARFISH: { art: 'starfish', w: 60, h: 22, platform: true, alive: true, desc: 'A starfish, fallen from somewhere.' },
+  SUN: { art: 'sun', w: 70, h: 70, light: 300, desc: 'The sun, setting into the sea.' },
+  FLOWER: { art: 'flower', w: 30, h: 40, desc: 'A small flower, growing out of the rock.' },
+  SUNFLOWER: { art: 'sunflower', w: 50, h: 340, climb: true, desc: 'A sunflower, taller than a house. Climbable.' },
+  FLY: { art: 'fly', w: 20, h: 14, alive: true, desc: 'A fly, buzzing round the fire.' },
+  FIREFLY: { art: 'firefly', w: 24, h: 18, light: 260, alive: true, desc: 'A firefly, carrying its own little light.' },
+  HORSE: { art: 'horse', w: 90, h: 80, solid: true, alive: true, desc: 'A horse, on the beach at night.' },
+  SEAHORSE: { art: 'seahorse', w: 80, h: 50, vehicle: true, alive: true, desc: 'A seahorse, big enough to ride.' },
+  SHELL: { art: 'shell', w: 30, h: 20, desc: 'An empty shell.' },
+  SEASHELL: { art: 'seashell', w: 50, h: 40, desc: 'A seashell. Hold it to your ear.' },
+  INKBLOT: { art: 'none', w: 0, h: 0, stops: true, desc: 'An inkblot. Folded, it’s only a picture. What do you see?' },
 }
 
 /**

@@ -6,6 +6,7 @@ import { ART_2 } from './art2'
 import { ART_3 } from './art3'
 import { ART_4 } from './art4'
 import { ART_5 } from './art5'
+import { ART_6 } from './art6'
 import type { Pen, Pt } from './pen'
 
 export interface ArtCtx {
@@ -466,4 +467,4 @@ export const ART: Record<string, Art> = {
   },
 }
 
-Object.assign(ART, ART_2, ART_3, ART_4, ART_5)
+Object.assign(ART, ART_2, ART_3, ART_4, ART_5, ART_6)

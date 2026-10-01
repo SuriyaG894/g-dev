@@ -10,9 +10,9 @@ export interface Rect {
   h: number
 }
 
-export type Power = 'pluck' | 'place' | 'mirror' | 'name'
+export type Power = 'pluck' | 'place' | 'mirror' | 'name' | 'fold'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert' | 'city'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert' | 'city' | 'sea'
 
 /** Then or Now. Pages in the Clockwork Tower exist in both. */
 export type Era = 'past' | 'present'
@@ -120,6 +120,11 @@ export type Op =
   | { type: 'lift'; word: string }
   /** Names a thing with the adjective in the quill. */
   | { type: 'name'; word: string }
+  /**
+   * Folds `other` into `word`: `word` stays where it is, spelled other+word ('before')
+   * or word+other ('after'), and `other` is gone from the page.
+   */
+  | { type: 'fold'; word: string; other: string; order: 'before' | 'after' }
 
 export interface LevelDef {
   id: string
@@ -153,7 +158,12 @@ export interface LevelDef {
   checkpoints?: Vec[]
   dark?: boolean
   /** A chasing wall: the Blot, or (style 'sand') a sandstorm. A STOP word halts it. */
-  blot?: { x: number; speed: number; delay: number; style?: 'ink' | 'sand'; named?: boolean }
+  blot?: { x: number; speed: number; delay: number; style?: 'ink' | 'sand'; named?: boolean; exitLocked?: boolean }
+  /**
+   * The page's crease: a vertical fold at x, or a horizontal one at y. Words that would
+   * touch when the page is folded along it can be folded together, however far apart.
+   */
+  crease?: { x?: number; y?: number }
   /** The Reader has a word of its own on this page (YOU), and can be named. */
   you?: boolean
   /** requires: the page only appears once a word with this spelling (or full name) exists. */

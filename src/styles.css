@@ -884,6 +884,57 @@ h3 {
   gap: 14px;
 }
 
+.qp-folds {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.qp-fold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.qp-fold-with {
+  font: italic 16px var(--f-body);
+  color: var(--ink-soft);
+  min-width: 90px;
+  text-align: right;
+}
+
+.qp-fold-btn {
+  font: clamp(20px, 3.4vw, 28px) / 1 var(--f-title);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--paper-3);
+  border: 2px solid var(--ink);
+  border-radius: 10px 13px 9px 14px / 13px 9px 14px 10px;
+  padding: 8px 14px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.qp-fold-btn:hover,
+.qp-fold-btn:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+  outline: none;
+}
+
+.qp-fold-none {
+  font: italic 17px var(--f-body);
+  color: var(--ink-soft);
+  max-width: 420px;
+  text-align: center;
+}
+
 .name-slot {
   display: flex;
   align-items: center;

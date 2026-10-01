@@ -137,6 +137,8 @@ export type EditRefusal =
   | 'empty'
   /** Letters can't change; it can only be named. */
   | 'fixed'
+  /** Neither near enough nor across the crease: the two words can't touch. */
+  | 'apart'
 
 export type WorldEvent =
   | { type: 'transform'; wordId: string; from: string; to: string; tier: Tier; x: number; y: number }
@@ -168,6 +170,8 @@ export type WorldEvent =
   /** A thing's full name changed (it was named, lost its name, or its name was respelled). */
   | { type: 'named'; wordId: string; name: string; x: number; y: number }
   | { type: 'bounce' }
+  /** Two words folded into one. `crease`: they met across the page's crease. */
+  | { type: 'fold'; from: string; to: string; x: number; y: number; fx: number; fy: number; crease: boolean }
 
 /** What a word is on the page: a thing, an adjective naming a thing, the Reader, or the Blot. */
 export type Role = 'thing' | 'tag' | 'reader' | 'chaser'
@@ -178,6 +182,8 @@ interface WordState {
   text: string
   /** For adjectives: what it names right now (null while it is in the quill). */
   of: string | null
+  /** Folded into another word, and gone from the page. */
+  into: string | null
   ent: Entity
   /** For words that live Then: what they have grown into, Now. */
   echo?: Entity
@@ -199,6 +205,7 @@ interface Snapshot {
   edit: boolean
   of: Record<string, string | null>
   carried: string | null
+  into: Record<string, string | null>
 }
 
 interface Solid {
@@ -289,7 +296,7 @@ export class World {
     this.words.clear()
     for (const def of this.defs) {
       const role: Role = def.of !== undefined ? 'tag' : def.id === 'you' && this.level.you ? 'reader' : def.id === 'blot' && this.level.blot?.named ? 'chaser' : 'thing'
-      this.words.set(def.id, { def, role, text: def.text, of: def.of ?? null } as WordState)
+      this.words.set(def.id, { def, role, text: def.text, of: def.of ?? null, into: null } as WordState)
     }
     // Every word exists before any is shaped, so things can see their names.
     for (const ws of this.words.values()) {
@@ -482,6 +489,7 @@ export class World {
   }
 
   private activeOf(ws: WordState): Entity | null {
+    if (ws.into) return null
     if (ws.role === 'tag') {
       // An adjective is only on the page while the thing it names is.
       const noun = ws.of ? this.words.get(ws.of) : undefined
@@ -708,11 +716,13 @@ export class World {
   private snapshot(edit: boolean): void {
     const texts: Record<string, string> = {}
     const of: Record<string, string | null> = {}
+    const into: Record<string, string | null> = {}
     for (const [id, ws] of this.words) {
       texts[id] = ws.text
+      into[id] = ws.into
       if (ws.role === 'tag') of[id] = ws.of
     }
-    this.history.push({ texts, quill: [...this.quill], taken: [...this.taken], edit, of, carried: this.carried })
+    this.history.push({ texts, quill: [...this.quill], taken: [...this.taken], edit, of, carried: this.carried, into })
   }
 
   pluckLetter(wordId: string, index: number): boolean {
@@ -823,6 +833,103 @@ export class World {
     return true
   }
 
+  get canFold(): boolean {
+    return this.level.powers.includes('fold')
+  }
+
+  /** Where a point lands when the page is folded along its crease. */
+  private across(pt: Vec): Vec | null {
+    const c = this.level.crease
+    if (!c) return null
+    if (c.x !== undefined) return { x: 2 * c.x - pt.x, y: pt.y }
+    if (c.y !== undefined) return { x: pt.x, y: 2 * c.y - pt.y }
+    return null
+  }
+
+  /** Would these two words touch if the page were folded along its crease? */
+  meetsAcross(a: string, b: string): boolean {
+    const ea = this.entityOf(a)
+    const eb = this.entityOf(b)
+    if (!ea || !eb) return false
+    const m = this.across(this.labelPos(ea))
+    if (!m) return false
+    const at = this.labelPos(eb)
+    return Math.hypot(m.x - at.x, m.y - at.y) < 110
+  }
+
+  /** Why `other` can't be folded into `word` right now (null if it can). */
+  canFoldWith(word: string, other: string): EditRefusal | null {
+    if (!this.canFold) return 'power'
+    // One of the two must be within reach; the other can be near too, or facing it across the crease.
+    const why = this.canEdit(word)
+    if (why && why !== 'far') return why
+    const ws = this.words.get(word)!
+    const os = this.words.get(other)
+    if (!os || other === word) return 'busy'
+    const oe = this.activeOf(os)
+    if (!oe) return 'busy'
+    if (ws.role === 'tag' || os.role === 'tag' || ws.role === 'reader' || os.role === 'reader' || os.role === 'chaser') return 'fixed'
+    if (oe.echo) return 'echo'
+    if (os.def.gold) return 'gold'
+    const at = this.labelPos(oe)
+    if (!this.isLit(at)) return 'dark'
+    const p = this.player
+    const near = Math.hypot(at.x - p.x, at.y - (p.y - this.ph / 2)) <= REACH
+    const across = this.meetsAcross(word, other)
+    if (why === 'far') {
+      if (!near || !across) return 'far'
+      if (!this.isLit(this.labelPos(this.activeOf(ws)!))) return 'dark'
+    } else if (!near && !across) return 'apart'
+    return null
+  }
+
+  /**
+   * Every fold this word can take part in. Usually it stays and the other is folded in,
+   * but the Blot always stays: it can't be folded away into anything.
+   */
+  foldOptions(wordId: string): { keep: string; take: string }[] {
+    const ws = this.words.get(wordId)
+    if (!ws || !this.canFold) return []
+    const out: { keep: string; take: string }[] = []
+    for (const ent of this.entities()) {
+      const other = ent.wordId
+      if (other === wordId) continue
+      if (this.words.get(other)!.role === 'chaser') {
+        if (this.canFoldWith(other, wordId) === null) out.push({ keep: other, take: wordId })
+      } else if (this.canFoldWith(wordId, other) === null) out.push({ keep: wordId, take: other })
+    }
+    return out
+  }
+
+  /** Every word that could be folded into this one. */
+  foldPartners(word: string): string[] {
+    const out: string[] = []
+    for (const ent of this.entities()) if (this.canFoldWith(word, ent.wordId) === null) out.push(ent.wordId)
+    return out
+  }
+
+  /**
+   * Folds `other` into `word` (one ink). The Blot can be folded into, but only into
+   * a word that means something: it won't be respelled into nonsense.
+   */
+  foldWords(word: string, other: string, order: 'before' | 'after'): boolean {
+    const why = this.canFoldWith(word, other)
+    if (why) return this.refuse(why)
+    const ws = this.words.get(word)!
+    const os = this.words.get(other)!
+    const text = order === 'before' ? os.text + ws.text : ws.text + os.text
+    if (ws.def.nameOnly && !LEXICON[text]) return this.refuse('fixed')
+    this.snapshot(true)
+    const from = this.labelPos(os.ent)
+    const crease = !!this.across(from) && this.meetsAcross(word, other)
+    const to = this.labelPos(ws.ent)
+    this.ghosts.push({ ent: os.ent, age: 0 })
+    os.into = word
+    this.events.push({ type: 'fold', from: os.text, to: text, x: to.x, y: to.y, fx: from.x, fy: from.y, crease })
+    this.setText(ws, text)
+    return true
+  }
+
   discard(quillIndex: number): void {
     const letter = this.quill[quillIndex]
     if (!letter || this.complete) return
@@ -847,6 +954,16 @@ export class World {
       ws.ent = this.build(ws, ws.text, null)
     }
     this.carried = snap.carried
+    // Unfold: words folded away come back, freshly written, where they were.
+    for (const [id, ws] of this.words) {
+      const into = snap.into[id] ?? null
+      if (into === ws.into) continue
+      ws.into = into
+      if (!into) {
+        ws.ent = this.build(ws, ws.text, null)
+        this.position(ws.ent, 0)
+      }
+    }
     for (const [id, ws] of this.words) {
       const text = snap.texts[id]
       if (text !== ws.text) {
@@ -871,6 +988,7 @@ export class World {
     if (op.type === 'swap') return this.swapLetters(op.word, op.i, op.j)
     if (op.type === 'lift') return this.liftName(op.word)
     if (op.type === 'name') return this.nameThing(op.word)
+    if (op.type === 'fold') return this.foldWords(op.word, op.other, op.order)
     return this.placeLetter(op.word, op.index, this.quill.indexOf(op.letter))
   }
 
@@ -1018,8 +1136,20 @@ export class World {
   }
 
   /** Is something on the page telling the storm to STOP? */
+  /** Some pages won't turn while the Blot is still coming. */
+  get exitOpen(): boolean {
+    return !this.level.blot?.exitLocked || this.halted
+  }
+
+  /** The Blot, folded with ink: only a picture now. It can't hurt anyone. */
+  get isInkblot(): boolean {
+    return !!this.level.blot?.named && this.words.get('blot')?.text === 'INKBLOT'
+  }
+
   get halted(): boolean {
     if (this.entities().some((e) => e.kind.stops)) return true
+    const blot = this.level.blot?.named ? this.words.get('blot') : undefined
+    if (blot && LEXICON[blot.text]?.stops) return true
     const a = this.blotName
     return !!a && holdsStill({ ...CHASER, alive: true }, a)
   }
@@ -1111,7 +1241,7 @@ export class World {
 
     if (p.y - this.ph > (this.level.height ?? 540) + 40) return this.die()
     for (const h of this.hazards()) if (overlap(pb, h)) return this.die()
-    if (pb.x < this.blotFront) return this.die()
+    if (pb.x < this.blotFront && !this.isInkblot) return this.die()
 
     const cps = this.level.checkpoints ?? []
     cps.forEach((cp, i) => {
@@ -1133,7 +1263,7 @@ export class World {
     }
 
     const ex = this.level.exit
-    if (overlap(this.playerBox(), { x: ex.x - 22, y: ex.y - 72, w: 44, h: 72 })) {
+    if (this.exitOpen && overlap(this.playerBox(), { x: ex.x - 22, y: ex.y - 72, w: 44, h: 72 })) {
       this.complete = true
       this.events.push({ type: 'complete', edits: this.edits })
     }

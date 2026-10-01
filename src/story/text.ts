@@ -35,6 +35,7 @@ export const EVENT_NOTES = {
   carrying: 'Your quill already holds a name. Give it to something first.',
   empty: 'Your quill holds no name. Lift one off something first.',
   fixed: 'That word can’t be respelled. It can only be named.',
+  apart: 'Too far apart to fold. Words have to be close, or face each other across the crease.',
 }
 
 export const TAB_WHISPERS = ['Come back…', 'The Blot is waiting.', 'Don’t leave me on this page.', 'Are you still reading?', 'What are you called, out there?']
@@ -101,6 +102,17 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-6',
+    title: 'A page folded inside a shell',
+    body: [
+      'We folded paper boats from the get-well cards and sailed them down the ward.',
+      'Mira said every fold is a promise: the paper remembers it, even flattened out.',
+      'I have unfolded this book a hundred times, looking for the crease where she is.',
+      'It is still there. I can feel it with my thumb.',
+      '— A.',
+    ],
+  },
 ]
 
 export const CHAPTER_ENDS: Record<number, string[]> = {
@@ -133,6 +145,12 @@ export const CHAPTER_ENDS: Record<number, string[]> = {
     'Under it, somebody has chalked a name on the cobbles: MIRA.',
     'The Blot creeps up to the word, slowly, and does not touch it.',
     'Beyond the rooftops, the page smells of salt.',
+  ],
+  6: [
+    'The inkblot dries on the folded page, the same on both sides.',
+    'Look at it long enough and it is two people, holding hands across the crease.',
+    'Then it is only ink again.',
+    'After the sea, there are no more pages. Only white.',
   ],
 }
 

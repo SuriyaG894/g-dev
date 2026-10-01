@@ -4,6 +4,7 @@ import { CHAPTER_2 } from './chapter2'
 import { CHAPTER_3 } from './chapter3'
 import { CHAPTER_4 } from './chapter4'
 import { CHAPTER_5 } from './chapter5'
+import { CHAPTER_6 } from './chapter6'
 
 export interface ChapterInfo {
   number: number
@@ -49,11 +50,17 @@ export const CHAPTERS: ChapterInfo[] = [
     blurb: 'A city where everything wears a name, and a name can be lifted off one thing and given to another. Even yours.',
     levels: CHAPTER_5,
   },
+  {
+    number: 6,
+    title: 'The Folded Sea',
+    power: 'Fold',
+    blurb: 'A sea of pages folded so often the words stick together. Fold two words into one, even across the crease, where facing pages touch.',
+    levels: CHAPTER_6,
+  },
 ]
 
 /** Chapters still being written, shown locked in the book. */
 export const UPCOMING = [
-  { number: 6, title: 'The Folded Sea', power: 'Fold' },
   { number: 7, title: 'The Blank', power: 'Every power' },
 ]
 

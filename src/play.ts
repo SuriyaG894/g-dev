@@ -53,6 +53,7 @@ export class Play {
       swap: (i, j) => this.edit(() => this.world.swapLetters(this.panel.wordId!, i, j)),
       mirror: () => this.edit(() => this.world.mirrorWord(this.panel.wordId!)),
       lift: (id) => this.edit(() => this.world.liftName(id)),
+      fold: (keep, take, order) => this.edit(() => this.world.foldWords(keep, take, order)),
       name: () => this.edit(() => this.world.nameThing(this.panel.wordId!)),
       open: (id) => {
         const why = this.world.canEdit(id)
@@ -300,6 +301,12 @@ export class Play {
         case 'bounce':
           app.sound.play('bounce')
           break
+        case 'fold':
+          app.sound.play('fold')
+          app.renderer.foldPage(w, e)
+          this.particles.trail(e.fx, e.fy, e.x, e.y, e.from)
+          this.shake = e.crease ? 4 : 0
+          break
         case 'stopped':
           app.sound.play('stop')
           app.sound.stopHum()
@@ -334,6 +341,7 @@ export class Play {
       carrying: EVENT_NOTES.carrying,
       empty: EVENT_NOTES.empty,
       fixed: EVENT_NOTES.fixed,
+      apart: EVENT_NOTES.apart,
     }
     const t = text[reason]
     if (t) this.app.notes.say(t, { urgent: true })

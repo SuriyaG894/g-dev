@@ -23,6 +23,11 @@ describe('level data', () => {
       it('has a spelling-valid solution whose length is par', () => {
         expect(level.solution.length).toBe(level.par)
         const texts = new Map(level.words.map((w) => [w.id, w.text]))
+        // The Reader's and the Blot's own words.
+        if (level.you) texts.set('you', 'YOU')
+        if (level.blot?.named) texts.set('blot', 'BLOT')
+        const start = new Map(texts)
+        const folded = new Set<string>()
         // Adjectives, and what each one names.
         const of = new Map(level.words.filter((w) => w.of !== undefined).map((w) => [w.id, w.of as string | null]))
         const startOf = new Map(of)
@@ -31,6 +36,7 @@ describe('level data', () => {
         const quill: string[] = (level.letters ?? []).map((l) => l.letter)
         for (const op of level.solution) {
           const text = texts.get(op.word)!
+          expect(folded.has(op.word), `${op.word} is still on the page`).toBe(false)
           if (op.type === 'pluck') {
             const r = ink.pluck(text, op.index)
             texts.set(op.word, r.text)
@@ -39,6 +45,11 @@ describe('level data', () => {
             texts.set(op.word, ink.mirror(text))
           } else if (op.type === 'swap') {
             texts.set(op.word, ink.swap(text, op.i, op.j))
+          } else if (op.type === 'fold') {
+            const other = texts.get(op.other)!
+            expect(folded.has(op.other), `${op.other} is still on the page`).toBe(false)
+            texts.set(op.word, op.order === 'before' ? other + text : text + other)
+            folded.add(op.other)
           } else if (op.type === 'lift') {
             expect(of.get(op.word), `${op.word} names something`).toBeTruthy()
             expect(carried, 'the quill holds one name at a time').toBeNull()
@@ -59,8 +70,8 @@ describe('level data', () => {
           if (level.powers.includes('place')) expect(quill.length).toBeLessThanOrEqual(level.quill)
         }
         // Every page ends with something new: a shaped thing, or a different future (what it grows into).
-        const changed = [...texts.values()].some((t, i) => {
-          const was = level.words[i].text
+        const changed = [...texts].some(([id, t]) => {
+          const was = start.get(id)!
           return t !== was && (tierOf(t) === 'thing' || grow(t) !== grow(was))
         })
         // …or a real adjective now names something new.

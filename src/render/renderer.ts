@@ -1,5 +1,5 @@
 import type { Theme } from '../game/types'
-import { REACH, type Entity, type World } from '../game/world'
+import { REACH, type Entity, type World, type WorldEvent } from '../game/world'
 import { ART } from './art'
 import { gearShape } from './art3'
 import { adjOverlay } from './art5'
@@ -65,6 +65,10 @@ export class Renderer {
   private lastEra: string | null = null
   /** Counts down after a flip, for the clock-face ripple. */
   private flipFx = 0
+  /** A page folding over along its crease: 1 → 0. */
+  private foldFx: { k: number; axis: 'x' | 'y'; c: number; side: 1 | -1 } | null = null
+  /** 0 → 1 as the Blot turns into an inkblot. */
+  private inkAmt = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -140,7 +144,17 @@ export class Renderer {
       this.pastAmt = world.era === 'past' ? 1 : 0
       this.lastEra = world.era
       this.flipFx = 0
+      this.foldFx = null
+      this.inkAmt = world.isInkblot ? 1 : 0
     }
+  }
+
+  /** Starts the page-fold animation for a fold that met across the crease. */
+  foldPage(world: World, e: Extract<WorldEvent, { type: 'fold' }>): void {
+    const c = world.level.crease
+    if (!e.crease || !c) return
+    if (c.x !== undefined) this.foldFx = { k: 1, axis: 'x', c: c.x, side: e.fx < c.x ? -1 : 1 }
+    else if (c.y !== undefined) this.foldFx = { k: 1, axis: 'y', c: c.y, side: e.fy < c.y ? -1 : 1 }
   }
 
   // ------------------------------------------------------------------ frame
@@ -191,6 +205,7 @@ export class Renderer {
     else if (lvl.theme === 'clock') this.clockworks(world, pal, st.t)
     else if (lvl.theme === 'desert') this.dunes(world, pal, st.t)
     else if (lvl.theme === 'city') this.city(world, pal, st.t)
+    else if (lvl.theme === 'sea') this.seaside(world, pal, st.t)
     else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
@@ -199,7 +214,7 @@ export class Renderer {
     for (const r of world.otherTerrain()) this.memory(r.x, r.y, r.w, r.h, pal)
     world.terrain().forEach((r) => this.terrain(r.x, r.y, r.w, r.h, lvl.terrain.indexOf(r), pal, lvl.theme))
     ;(lvl.checkpoints ?? []).forEach((cp, i) => this.checkpoint(cp.x, cp.y, world.reached.has(i), pal, st.t))
-    this.exit(lvl.exit.x, lvl.exit.y, pal, st.t)
+    this.exit(lvl.exit.x, lvl.exit.y, pal, st.t, world.exitOpen)
 
     for (const g of world.ghosts) {
       if (g.ent.era !== 'both' && g.ent.era !== world.era) continue
@@ -214,11 +229,19 @@ export class Renderer {
       this.entity(ent, pal, st, boil, reveal)
     }
     this.pools(world, pal, st.t)
+    if (lvl.crease) this.crease(world, pal, st)
     this.labelsFor(world, pal, st)
 
     if (!world.dead) this.player(world, pal, st.t)
     st.particles.draw(c, this.font)
-    if (lvl.blot) this.blot(world.blotFront, lvl.blot.style === 'sand' ? { ...pal, blot: '#b8894a' } : pal, st.t, lvl.blot.style === 'sand')
+    this.foldFlap(pal)
+    if (lvl.blot) this.inkAmt += ((world.isInkblot ? 1 : 0) - this.inkAmt) * 0.04
+    if (lvl.blot && this.inkAmt > 0.02) this.inkblot(world.blotFront, pal, st.t)
+    if (lvl.blot && this.inkAmt < 0.98) {
+      c.globalAlpha = 1 - this.inkAmt
+      this.blot(world.blotFront, lvl.blot.style === 'sand' ? { ...pal, blot: '#b8894a' } : pal, st.t, lvl.blot.style === 'sand')
+      c.globalAlpha = 1
+    }
 
     this.timeWash(world, pal, st.t, st.reduced)
 
@@ -393,6 +416,220 @@ export class Renderer {
     c.strokeStyle = pal.accent
     c.lineWidth = 1.6
     c.strokeRect(x, y, w, Math.min(h, 40))
+    c.restore()
+  }
+
+  /** A horizon of sea, with islands, a lighthouse, gulls, and a sky that is only the sea upside down. */
+  private seaside(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    const H = this.worldH
+    const horizon = H - 240
+    const left = this.camX * 0.25
+    const wx = (px: number) => this.camX + (px - left)
+    c.save()
+    // The sea, below the horizon.
+    c.globalAlpha = 0.12
+    c.fillStyle = pal.water
+    c.fillRect(this.camX - 20, horizon, this.viewW + 40, H - horizon + 40)
+    c.restore()
+    for (let row = 0; row < 5; row++) {
+      const y = horizon + 10 + row * row * 9
+      const pts: Pt[] = []
+      for (let x = Math.floor(this.camX / 24) * 24 - 24; x <= this.camX + this.viewW + 24; x += 24) pts.push(P(x, y + Math.sin(x * 0.03 + t * (0.8 + row * 0.2) + row) * (1 + row)))
+      pen.seed(row + 300)
+      pen.stroke(pts, { w: 1, color: pal.water, alpha: 0.25 + row * 0.05, plain: true })
+    }
+    pen.seed(301)
+    pen.line(this.camX - 20, horizon, this.camX + this.viewW + 20, horizon, { w: 1.2, alpha: 0.3, plain: true })
+    // Islands and a lighthouse, far away.
+    for (let i = 0; i < 4; i++) {
+      const x = wx(hash(i + 70) * (world.level.width * 0.25 + this.viewW))
+      const w = 80 + hash(i + 71) * 160
+      pen.seed(i + 310)
+      pen.stroke([P(x - w / 2, horizon), P(x - w / 4, horizon - 18 - hash(i) * 20), P(x + w / 5, horizon - 12), P(x + w / 2, horizon)], { w: 1.2, alpha: 0.25, fill: pal.ink, fillAlpha: 0.06, plain: true })
+      if (i === 1) {
+        pen.rect(x - 5, horizon - 70, 10, 52, { w: 1.2, alpha: 0.3, plain: true })
+        c.save()
+        c.globalAlpha = 0.18 + Math.max(0, Math.sin(t * 1.2)) * 0.25
+        c.fillStyle = pal.glow
+        c.beginPath()
+        c.moveTo(x, horizon - 66)
+        const a = Math.sin(t * 0.6) * 0.8
+        c.lineTo(x + Math.cos(a) * 140, horizon - 66 - 20 + Math.sin(a) * 10)
+        c.lineTo(x + Math.cos(a) * 140, horizon - 66 + 20 + Math.sin(a) * 10)
+        c.fill()
+        c.restore()
+      }
+    }
+    // Gulls.
+    for (let i = 0; i < 5; i++) {
+      const x = this.camX + ((hash(i + 80) * 1400 + t * (14 + i * 3)) % (this.viewW + 200)) - 100
+      const y = this.camY + 70 + hash(i + 81) * 160 + Math.sin(t + i) * 8
+      const f = Math.sin(t * 5 + i) * 4
+      pen.seed(i + 320)
+      pen.stroke([P(x - 9, y - f), P(x, y), P(x + 9, y - f)], { w: 1.2, alpha: 0.35, plain: true })
+    }
+  }
+
+  /** The gutter where two pages are sewn together, and the words that would touch across it. */
+  private crease(world: World, pal: Palette, st: DrawState): void {
+    const cr = world.level.crease!
+    const c = this.ctx
+    c.save()
+    if (cr.x !== undefined) {
+      const g = c.createLinearGradient(cr.x - 40, 0, cr.x + 40, 0)
+      g.addColorStop(0, 'rgba(60,40,20,0)')
+      g.addColorStop(0.5, 'rgba(60,40,20,0.22)')
+      g.addColorStop(1, 'rgba(60,40,20,0)')
+      c.fillStyle = g
+      c.fillRect(cr.x - 40, this.camY - 20, 80, VIEW_H + 40)
+    } else if (cr.y !== undefined) {
+      const g = c.createLinearGradient(0, cr.y - 40, 0, cr.y + 40)
+      g.addColorStop(0, 'rgba(60,40,20,0)')
+      g.addColorStop(0.5, 'rgba(60,40,20,0.22)')
+      g.addColorStop(1, 'rgba(60,40,20,0)')
+      c.fillStyle = g
+      c.fillRect(this.camX - 20, cr.y - 40, this.viewW + 40, 80)
+    }
+    c.restore()
+    c.save()
+    c.globalAlpha = 0.35
+    c.setLineDash([4, 6])
+    c.strokeStyle = pal.ink
+    c.lineWidth = 1
+    c.beginPath()
+    if (cr.x !== undefined) {
+      c.moveTo(cr.x, this.camY - 20)
+      c.lineTo(cr.x, this.camY + VIEW_H + 20)
+    } else if (cr.y !== undefined) {
+      c.moveTo(this.camX - 20, cr.y)
+      c.lineTo(this.camX + this.viewW + 20, cr.y)
+    }
+    c.stroke()
+    // Show-through: on thin paper, every word shows faintly, back to front, where it would touch.
+    c.setLineDash([])
+    c.font = `22px ${this.font}`
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillStyle = pal.ink
+    for (const ent of world.entities()) {
+      const k = ent.kind
+      if (k.tag || k.reader || k.chaser) continue
+      const at = world.labelPos(ent)
+      // Lifted a little above where it lands, so it isn't hidden behind the word it would touch.
+      const m = cr.x !== undefined ? { x: 2 * cr.x - at.x, y: at.y - 30 } : { x: at.x, y: 2 * cr.y! - at.y - 30 }
+      if (m.x < this.camX - 100 || m.x > this.camX + this.viewW + 100 || m.y < this.camY - 40 || m.y > this.camY + VIEW_H + 40) continue
+      c.save()
+      c.globalAlpha = 0.24 + Math.sin(st.t * 1.5 + ent.uid) * 0.04
+      c.translate(m.x, m.y)
+      c.scale(cr.x !== undefined ? -1 : 1, cr.y !== undefined ? -1 : 1)
+      c.fillText(ent.text, 0, 0)
+      c.restore()
+    }
+    // While a word is open, show what it would touch if the page were folded.
+    const sel = st.selected ? world.entityOf(st.selected) : null
+    if (sel) {
+      const a = world.labelPos(sel)
+      c.globalAlpha = 0.6
+      c.strokeStyle = pal.gold
+      c.lineWidth = 2
+      for (const ent of world.entities()) {
+        if (ent === sel || !world.meetsAcross(sel.wordId, ent.wordId)) continue
+        const b = world.labelPos(ent)
+        c.beginPath()
+        c.moveTo(a.x, a.y)
+        const mx = cr.x !== undefined ? cr.x : (a.x + b.x) / 2
+        const my = cr.y !== undefined ? cr.y : Math.min(a.y, b.y) - 120
+        c.quadraticCurveTo(mx, my, b.x, b.y)
+        c.stroke()
+      }
+    }
+    c.restore()
+  }
+
+  /** The folded half of the page, flipping over onto the other half. */
+  private foldFlap(pal: Palette): void {
+    const f = this.foldFx
+    if (!f) return
+    f.k -= 1 / 48
+    if (f.k <= 0) {
+      this.foldFx = null
+      return
+    }
+    const c = this.ctx
+    // cos sweeps 1 → -1: the flap starts on its own side and lands on the other.
+    const span = Math.cos((1 - f.k) * Math.PI)
+    const shade = Math.abs(span)
+    c.save()
+    // Solid while it swings over, fading only as it settles onto the other side.
+    const alpha = Math.min(0.92, f.k * 2.6)
+    c.globalAlpha = alpha
+    c.fillStyle = pal.paper
+    c.strokeStyle = pal.ink
+    c.lineWidth = 2
+    if (f.axis === 'x') {
+      // A whole sheet, wider than the view, swinging over on its hinge.
+      const reach = this.viewW + 120
+      const w = reach * span * f.side
+      c.fillRect(Math.min(f.c, f.c + w), this.camY - 20, Math.abs(w), VIEW_H + 40)
+      c.globalAlpha *= 1 - shade
+      c.fillStyle = 'rgba(60,40,20,0.5)'
+      c.fillRect(Math.min(f.c, f.c + w), this.camY - 20, Math.abs(w), VIEW_H + 40)
+      c.globalAlpha = alpha * 0.7
+      c.beginPath()
+      c.moveTo(f.c + w, this.camY - 20)
+      c.lineTo(f.c + w, this.camY + VIEW_H + 20)
+      c.stroke()
+    } else {
+      const reach = VIEW_H + 120
+      const h = reach * span * f.side
+      c.fillRect(this.camX - 20, Math.min(f.c, f.c + h), this.viewW + 40, Math.abs(h))
+      c.globalAlpha *= 1 - shade
+      c.fillStyle = 'rgba(60,40,20,0.5)'
+      c.fillRect(this.camX - 20, Math.min(f.c, f.c + h), this.viewW + 40, Math.abs(h))
+      c.globalAlpha = alpha * 0.7
+      c.beginPath()
+      c.moveTo(this.camX - 20, f.c + h)
+      c.lineTo(this.camX + this.viewW + 20, f.c + h)
+      c.stroke()
+    }
+    c.restore()
+  }
+
+  /** The Blot, folded: a symmetrical inkblot, the same on both sides. */
+  private inkblot(front: number, pal: Palette, t: number): void {
+    const c = this.ctx
+    const cx = front - 170
+    const cy = 250
+    c.save()
+    c.globalAlpha = this.inkAmt
+    c.fillStyle = pal.blot
+    for (const side of [-1, 1]) {
+      c.beginPath()
+      for (let i = 0; i <= 40; i++) {
+        const a = -Math.PI / 2 + (i / 40) * Math.PI
+        const r = 90 + Math.sin(a * 3 + 1) * 34 + Math.sin(a * 7) * 14 + Math.sin(a * 13 + t * 0.4) * 4
+        const x = cx + side * Math.cos(a) * r * 1.2
+        const y = cy + Math.sin(a) * r
+        if (i === 0) c.moveTo(cx, y)
+        c.lineTo(x, y)
+      }
+      c.closePath()
+      c.fill()
+      for (let i = 0; i < 6; i++) {
+        c.beginPath()
+        c.arc(cx + side * (40 + hash(i) * 120), cy - 100 + hash(i + 5) * 200, 4 + hash(i + 9) * 9, 0, Math.PI * 2)
+        c.fill()
+      }
+    }
+    // Two pale holes that might be eyes, or might be two people, holding hands.
+    c.fillStyle = pal.paper
+    for (const side of [-1, 1]) {
+      c.beginPath()
+      c.ellipse(cx + side * 34, cy - 20, 10, 22, side * 0.3, 0, Math.PI * 2)
+      c.fill()
+    }
     c.restore()
   }
 
@@ -741,6 +978,14 @@ export class Renderer {
     pen.line(x, y, x - 1, bottom, { w: 2 })
     pen.line(x + w, y, x + w + 1, bottom, { w: 2 })
     if (theme === 'blot') return
+    if (theme === 'sea') {
+      for (let px = Math.ceil(vx0 / 30) * 30; px < vx1 - 10; px += 30) {
+        const k = hash(px)
+        if (k < 0.3) pen.ellipse(px + k * 20, y + 10 + hash(px + 1) * 24, 6, 4, { from: Math.PI, to: Math.PI * 2, w: 1, alpha: 0.4, plain: true })
+        else if (k < 0.7) pen.ellipse(px + k * 20, y + 8 + hash(px + 2) * 30, 1.6, 1.6, { fill: pen.ink, w: 0, alpha: 0.3 })
+      }
+      return
+    }
     if (theme === 'city') {
       for (let px = Math.ceil(vx0 / 26) * 26; px < vx1 - 10; px += 26) {
         pen.ellipse(px + 13, y + 9, 11, 5, { w: 1, alpha: 0.4, plain: true })
@@ -807,9 +1052,19 @@ export class Renderer {
     })
   }
 
-  private exit(x: number, y: number, pal: Palette, t: number): void {
+  private exit(x: number, y: number, pal: Palette, t: number, open = true): void {
     const c = this.ctx
     const pen = this.pen
+    if (!open) {
+      // A page that won't turn yet: the corner is there, but faint, and pinned down.
+      c.save()
+      c.globalAlpha = 0.35
+      pen.seed(9)
+      pen.stroke([P(x - 20, y), P(x - 20, y - 66), P(x + 8, y - 66), P(x + 20, y - 54), P(x + 20, y)], { close: true, w: 1.6 })
+      pen.line(x - 26, y - 40, x + 26, y - 28, { w: 2.4, color: '#9b3b2e' })
+      c.restore()
+      return
+    }
     const pulse = 0.8 + Math.sin(t * 2.4) * 0.2
     const g = c.createRadialGradient(x, y - 36, 4, x, y - 36, 90)
     g.addColorStop(0, `rgba(245,217,138,${0.55 * pulse})`)
