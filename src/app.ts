@@ -1,6 +1,8 @@
 import { Sound } from './audio/sound'
 import type { LevelDef } from './game/types'
+import { track } from './analytics'
 import { Controls } from './input'
+import { canInstall, install, onInstalled } from './install'
 import { ALL_LEVELS, CHAPTERS, chapterOf, levelById, nextLevel, type ChapterInfo } from './levels'
 import { Play } from './play'
 import { Renderer } from './render/renderer'
@@ -55,6 +57,7 @@ export class App {
       if (document.hidden && this.play && !this.play.paused && !this.play.ended) this.play.setPaused(true, true)
     })
     this.rotateHint()
+    onInstalled(() => track('/installed'))
   }
 
   start(): void {
@@ -180,6 +183,7 @@ export class App {
     this.notes.clear()
     this.play = new Play(this, level)
     document.body.classList.add('playing')
+    track(`/page/${level.id}`)
     this.save.lastLevel = level.id
     persist(this.save)
     this.canvas.focus({ preventScroll: true })
@@ -201,6 +205,7 @@ export class App {
         this.sound.startAmbient('blank')
         this.setScreen(screens.lastPageScreen(this))
       })
+      track('/last-page')
       return
     }
     if (lastInChapter) {
@@ -252,6 +257,14 @@ export class App {
     persist(this.save)
   }
 
+  get canInstall(): boolean {
+    return canInstall()
+  }
+
+  install(): Promise<void> {
+    return install()
+  }
+
   get pastPageOpen(): boolean {
     return this.save.secrets.includes('past-page')
   }
@@ -267,6 +280,7 @@ export class App {
   /** The last word is written. */
   finishBook(word: string): void {
     if (!this.save.endings.includes(word)) this.save.endings.push(word)
+    track(`/ending/${word.toLowerCase()}`)
     persist(this.save)
     this.sound.play('complete')
     void this.turn(() => {
@@ -276,7 +290,10 @@ export class App {
   }
 
   secret(id: string): void {
-    if (!this.save.secrets.includes(id)) this.save.secrets.push(id)
+    if (!this.save.secrets.includes(id)) {
+      this.save.secrets.push(id)
+      if (id === 'past-page') track('/secret/past-page')
+    }
     persist(this.save)
   }
 

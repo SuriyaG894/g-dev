@@ -4,7 +4,7 @@
 
 A mysterious puzzle adventure that runs in the browser. You're a small ink figure trapped in an unfinished storybook, and you change the world by editing its words. Pluck the **B** out of **BRIDGE** and it becomes a **RIDGE** you can climb. **FIRE** becomes a **FIR** tree. Put a stray **L** in front of **ADDER** and you have a **LADDER**.
 
-**v1.0 is the whole book: seven chapters, 35 pages, four endings, and a secret chapter.**
+**v1.1 is the whole book: seven chapters, 35 pages, four endings, and a secret chapter.**
 - **Chapter I, *The Margin Woods*:** pluck and place letters; darkness; the first appearance of the Blot.
 - **Chapter II, *The Drowned Library*:** tides that raise and lower the water, things that float and swim, lost letters to catch, gold words nobody can change, the Librarian (a guardian you can only distract), and a vertical escape from a rising FLOOD.
 - **Chapter III, *The Clockwork Tower*:** **Then & Now**. Press **F** to turn time. Every page exists twice; bridges stand Then and are gone Now, iron rusts, and what you change in the past grows up (SEED → TREE, CUB → BEAR, SPARK → FIRE). At *Midnight*, the clock turns time by itself.
@@ -46,7 +46,7 @@ In dev mode you can jump straight to a page with `?level=2-5`, and press <kbd>`<
 
 ## Deploy to Vercel
 
-The game is a static Vite site with no server and no environment variables.
+The game is a static Vite site with no server and no required environment variables.
 
 1. Push this folder to a GitHub repository:
    ```bash
@@ -64,6 +64,21 @@ The game is a static Vite site with no server and no environment variables.
 After that, every push to `main` redeploys the live game, and every other branch or pull request gets its own preview URL.
 
 You can also deploy from the terminal: `npm i -g vercel && vercel --prod`.
+
+Everything below works on Vercel's free **Hobby** plan.
+
+### Visitor counts (optional, free)
+
+The game sends anonymous page views to **Vercel Web Analytics**. It uses no cookies, and it respects Do Not Track and Global Privacy Control. To switch it on, open the project on vercel.com, go to the **Analytics** tab, choose **Enable**, and redeploy. Until then nothing is collected.
+
+Custom events are a paid feature, so each page of the book counts as a page view of its own: `/page/3-2`, `/last-page`, `/ending/hope`, `/secret/past-page`, `/installed`. The Pages report shows how far readers get and where they stop. The Hobby plan includes a monthly allowance of events; the Analytics tab shows how much is used. Analytics only run on builds made by Vercel, so a copy uploaded to another site sends nothing.
+
+### Link previews, offline play, installing
+
+- **Link previews.** `public/og.jpg` is the image shown when the link is shared on WhatsApp, X or Discord. Preview tags need the site's full address, which Vercel provides to every build. For a custom domain, add an environment variable `SITE_URL` (for example `https://thelastpage.game`) under **Settings → Environment Variables**.
+- **Offline play.** After the first visit, a service worker keeps the whole book on the device, so it plays without a connection. Each deploy replaces the previous copy.
+- **Installing.** On phones and in Chrome or Edge, the book can be installed as an app: use the browser's *Install* or *Add to Home Screen*, or the button in Settings.
+- **Regenerating the images.** `node scripts/make-icons.mjs` redraws the app icons from `public/favicon.svg`. `node scripts/make-og.mjs <url>` photographs the title screen of a running copy (`npm run dev`) for `og.jpg`. Both use a locally installed Edge (set `BROWSER=chrome` for Chrome).
 
 ## How it's built
 

@@ -176,11 +176,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 22px;
   padding: 24px 16px;
   animation: fade-in 0.5s ease both;
   overflow-y: auto;
+}
+
+/* Centred when there's room; scrollable from the top when there isn't (small phones, sideways). */
+.screen > :first-child {
+  margin-top: auto;
+}
+
+.screen > :last-child {
+  margin-bottom: auto;
 }
 
 .modal-screen {
@@ -1499,11 +1508,12 @@ body.reduced *::after {
 
 @media (max-height: 460px) {
   #notes {
-    padding-top: 96px;
+    padding-top: 108px;
+    max-width: min(400px, 56vw);
   }
   .note {
-    font-size: 21px;
-    padding: 8px 12px 18px;
+    font-size: 18px;
+    padding: 6px 12px 16px;
   }
   .quill-panel {
     padding: 10px 14px;
@@ -1518,5 +1528,68 @@ body.reduced *::after {
   }
   .title-foot {
     display: none;
+  }
+  .screen {
+    gap: 10px;
+    padding: 12px max(16px, env(safe-area-inset-left));
+  }
+  .title-kicker {
+    display: none;
+  }
+  .tagline {
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+  .menu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    min-width: min(520px, 92vw);
+  }
+  .menu .btn {
+    font-size: 17px;
+    min-height: 40px;
+    padding: 6px 14px;
+  }
+  .lp-letter {
+    width: 30px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .dark-lines p {
+    font-size: 17px;
+    margin: 4px 0;
+  }
+  .end-slot {
+    min-height: 50px;
+  }
+  .end-cell {
+    width: 40px;
+    height: 48px;
+    font-size: 32px;
+  }
+  .end-tile {
+    width: 42px;
+    height: 46px;
+    font-size: 24px;
+  }
+  .the-end {
+    font-size: 34px;
+  }
+  .qp-folds {
+    max-height: 52vh;
+    gap: 6px;
+  }
+  .qp-fold {
+    flex-wrap: nowrap;
+  }
+  .qp-fold-with {
+    min-width: 0;
+    font-size: 14px;
+  }
+  .qp-fold-btn {
+    font-size: 18px;
+    min-height: 36px;
+    padding: 4px 10px;
   }
 }

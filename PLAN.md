@@ -127,7 +127,7 @@ g-dev/
 | **3. Polish** | Ink particles, animations, audio, diary pages, margin notes | It feels like a finished game | 🟡 mostly done early (particles, procedural audio, diary, notes) |
 | **4. Chapters 2–3** | Place, page flipping, the Blot enemy | **v0.2** | ✅ Chapter II (v0.2) and Chapter III (v0.3) done |
 | **5. Chapters 4–7** | Mirror, Name, Fold, 3 endings, secret chapter, browser tricks | **v1.0 full game** | ✅ v1.0: all seven chapters, four endings and the secret chapter |
-| **6. Launch polish** | Mobile tuning, accessibility, PWA, share image, analytics | Ready for the public | 🟡 easy-read font, reduced motion, touch controls and share button already in |
+| **6. Launch polish** | Mobile tuning, accessibility, PWA, share image, analytics | Ready for the public | ✅ v1.1: offline play and install (PWA), link-preview image and tags, Vercel Web Analytics (free tier, one page view per page of the book), phone-sized menus, install button |
 
 ### Accessibility
 - Dyslexia-friendly font toggle

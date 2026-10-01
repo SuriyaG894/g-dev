@@ -103,7 +103,7 @@ export function titleScreen(app: App): HTMLElement {
     menu,
     h('div', {
       class: 'title-foot',
-      text: `v1.0 · Seven chapters${app.pastPageOpen ? ', and a secret' : ''}${app.save.endings.length ? ` · Endings found: ${app.save.endings.length} of ${Object.keys(ENDINGS).length}` : ''} · Headphones recommended`,
+      text: `v${__VERSION__} · Seven chapters${app.pastPageOpen ? ', and a secret' : ''}${app.save.endings.length ? ` · Endings found: ${app.save.endings.length} of ${Object.keys(ENDINGS).length}` : ''} · Headphones recommended`,
     }),
   )
 }
@@ -262,6 +262,7 @@ export function settingsScreen(app: App, back: () => void): HTMLElement {
         h('p', { text: 'In the City of Ink, ⤴ lift a name (FROZEN, TALL…) off one thing and ✒ name another with it. Y: your own word' }),
         h('p', { text: 'On the Folded Sea, ⧉ fold two words into one (SUN + FLOWER). Words facing each other across the crease can fold however far apart they are' }),
       ),
+      app.canInstall ? button('Install the book as an app', () => void app.install(), 'btn') : null,
       reset,
     ),
     button('← Back', back, 'btn'),

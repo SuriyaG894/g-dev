@@ -4,14 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>The Last Page</title>
-    <meta name="description" content="A mysterious puzzle adventure inside an unfinished storybook. Pluck letters out of words to change the world. BRIDGE becomes RIDGE, FIRE becomes FIR. Free to play in your browser." />
+    <meta name="description" content="A mysterious puzzle adventure inside an unfinished storybook. Change the world by editing its words: BRIDGE becomes RIDGE, FIRE becomes FIR. Seven chapters, four endings, and a secret. Free in your browser." />
     <meta name="theme-color" content="#1e1914" />
+    <link rel="canonical" href="%SITE%/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Last Page" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Link previews (WhatsApp, X, Discord…). %SITE% is filled in at build time; see vite.config.ts. -->
+    <meta property="og:site_name" content="The Last Page" />
     <meta property="og:title" content="The Last Page" />
     <meta property="og:description" content="Every world is written. Every word can be unwritten. A browser puzzle adventure inside an unfinished storybook." />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:url" content="%SITE%/" />
+    <meta property="og:image" content="%SITE%/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The title page of The Last Page: hand-inked letters on old paper, with a black blot creeping in below." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Last Page" />
+    <meta name="twitter:description" content="Every world is written. Every word can be unwritten." />
+    <meta name="twitter:image" content="%SITE%/og.jpg" />
   </head>
   <body>
     <canvas id="stage" tabindex="0" aria-label="The Last Page: game world"></canvas>
