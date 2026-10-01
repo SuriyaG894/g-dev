@@ -1,6 +1,24 @@
 import * as ink from './ink'
-import { LEXICON, MIRAGE, SCRIBBLE, WHISPER, tierOf, whisperWidth, type Kind, type Tier } from './lexicon'
-import type { Era, Input, LetterDef, LevelDef, Op, PoolDef, Rect, TerrainRect, Vec, WordDef } from './types'
+import {
+  ADJECTIVES,
+  CHASER,
+  LEXICON,
+  MIRAGE,
+  READER,
+  SCRIBBLE,
+  TAG,
+  WHISPER,
+  describeName,
+  holdsStill,
+  nameTier,
+  named,
+  tierOf,
+  whisperWidth,
+  type Adjective,
+  type Kind,
+  type Tier,
+} from './lexicon'
+import type { Era, Input, LetterDef, LevelDef, Op, PoolDef, Rect, TerrainRect, Tune, Vec, WordDef } from './types'
 
 export const PLAYER_W = 20
 export const PLAYER_H = 38
@@ -16,6 +34,9 @@ const CLIMB_V = 150
 const STEP_UP = 16
 const UPDRAFT = 3100
 const UPDRAFT_MAX = 330
+const BOUNCE = 1050
+/** How far above a thing's label its adjective sits. */
+export const TAG_GAP = 24
 
 export interface Vehicle {
   dx: number
@@ -70,6 +91,10 @@ export interface Entity {
   mirrorOf?: string
   /** A Sphinx whose riddles are all answered lies down, and no longer blocks the way. */
   resting?: boolean
+  /** The adjective naming it, when it is a real one that changed it. */
+  adj?: string
+  /** Its size relative to its natural shape (GIANT, TINY, TALL…). */
+  scale?: { x: number; y: number }
 }
 
 export interface Ghost {
@@ -91,9 +116,27 @@ export interface Player {
   facing: 1 | -1
   walk: number
   air: number
+  /** Sprung (by something BOUNCY): the jump isn't cut short when the button is let go. */
+  boost: boolean
 }
 
-export type EditRefusal = 'far' | 'dark' | 'gold' | 'full' | 'short' | 'power' | 'busy' | 'echo' | 'blocked' | 'same'
+export type EditRefusal =
+  | 'far'
+  | 'dark'
+  | 'gold'
+  | 'full'
+  | 'short'
+  | 'power'
+  | 'busy'
+  | 'echo'
+  | 'blocked'
+  | 'same'
+  /** The quill already holds a name. */
+  | 'carrying'
+  /** The quill holds no name to give. */
+  | 'empty'
+  /** Letters can't change; it can only be named. */
+  | 'fixed'
 
 export type WorldEvent =
   | { type: 'transform'; wordId: string; from: string; to: string; tier: Tier; x: number; y: number }
@@ -121,10 +164,20 @@ export type WorldEvent =
   | { type: 'swap'; x: number; y: number }
   | { type: 'riddle'; wordId: string; index: number }
   | { type: 'stopped' }
+  | { type: 'lift'; word: string; x: number; y: number }
+  /** A thing's full name changed (it was named, lost its name, or its name was respelled). */
+  | { type: 'named'; wordId: string; name: string; x: number; y: number }
+  | { type: 'bounce' }
+
+/** What a word is on the page: a thing, an adjective naming a thing, the Reader, or the Blot. */
+export type Role = 'thing' | 'tag' | 'reader' | 'chaser'
 
 interface WordState {
   def: WordDef
+  role: Role
   text: string
+  /** For adjectives: what it names right now (null while it is in the quill). */
+  of: string | null
   ent: Entity
   /** For words that live Then: what they have grown into, Now. */
   echo?: Entity
@@ -144,6 +197,8 @@ interface Snapshot {
   quill: string[]
   taken: string[]
   edit: boolean
+  of: Record<string, string | null>
+  carried: string | null
 }
 
 interface Solid {
@@ -179,7 +234,11 @@ function ease(s: number): number {
 export class World {
   readonly level: LevelDef
   readonly words = new Map<string, WordState>()
+  /** Every word on the page, including the Reader's and the Blot's own. */
+  readonly defs: WordDef[]
   quill: string[] = []
+  /** The adjective lifted into the quill, waiting to name something. */
+  carried: string | null = null
   history: Snapshot[] = []
   player!: Player
   time = 0
@@ -209,6 +268,9 @@ export class World {
 
   constructor(level: LevelDef) {
     this.level = level
+    this.defs = [...level.words]
+    if (level.you) this.defs.push({ id: 'you', text: 'YOU', x: 0, y: 0, nameOnly: true })
+    if (level.blot?.named) this.defs.push({ id: 'blot', text: 'BLOT', x: 0, y: 0, nameOnly: true })
     this.checkpoint = { ...level.spawn }
     this.reset()
   }
@@ -225,12 +287,16 @@ export class World {
     this.pools = (this.level.pools ?? []).map((def) => ({ def, base: def.base, surface: def.base }))
     this.taken.clear()
     this.words.clear()
-    for (const def of this.level.words) {
-      const ws = { def, text: def.text } as WordState
-      ws.ent = this.build(ws, def.text, null)
-      if (def.era === 'past') ws.echo = this.buildEcho(ws, null)
-      this.words.set(def.id, ws)
+    for (const def of this.defs) {
+      const role: Role = def.of !== undefined ? 'tag' : def.id === 'you' && this.level.you ? 'reader' : def.id === 'blot' && this.level.blot?.named ? 'chaser' : 'thing'
+      this.words.set(def.id, { def, role, text: def.text, of: def.of ?? null } as WordState)
     }
+    // Every word exists before any is shaped, so things can see their names.
+    for (const ws of this.words.values()) {
+      ws.ent = this.build(ws, ws.text, null)
+      if (ws.def.era === 'past') ws.echo = this.buildEcho(ws, null)
+    }
+    this.carried = null
     this.quill = []
     this.history = []
     this.ghosts = []
@@ -263,24 +329,48 @@ export class World {
       facing: 1,
       walk: 0,
       air: 0,
+      boost: false,
     }
   }
 
   // ---------------------------------------------------------------- entities
 
   private build(ws: WordState, text: string, prev: Entity | null): Entity {
+    if (ws.role !== 'thing') return this.buildSpecial(ws, text)
     const def = ws.def
-    const tune = def.tune?.[text] ?? {}
+    const name = this.nameOf(def.id)
+    const full = name ? def.tune?.[`${name} ${text}`] : undefined
+    const tune: Tune = { ...def.tune?.[text], ...full }
     const tier = tierOf(text)
     let kind: Kind
     let ax = tune.x ?? def.x
     let ay = tune.y ?? def.y
     let w: number
     let h: number
+    let adj: Adjective | undefined
+    let scale: { x: number; y: number } | undefined
     if (tier === 'thing') {
       kind = LEXICON[text]
-      w = tune.w ?? kind.w
-      h = tune.h ?? kind.h
+      w = def.tune?.[text]?.w ?? kind.w
+      h = def.tune?.[text]?.h ?? kind.h
+      const nt = name ? nameTier(name) : null
+      if (nt === 'nonsense') {
+        // A nonsense name spoils the thing: it keeps its shape, and bites.
+        kind = SCRIBBLE
+      } else if (nt === 'adjective') {
+        adj = ADJECTIVES[name!]
+        kind = named(kind, adj)
+        let [sx, sy] = adj.scale ?? [1, 1]
+        if (adj.long) {
+          if (w >= h) sx = adj.long
+          else sy = adj.long
+        }
+        const nw = full?.w ?? w * sx
+        const nh = full?.h ?? h * sy
+        if (nw !== w || nh !== h) scale = { x: nw / w, y: nh / h }
+        w = nw
+        h = nh
+      }
     } else if (tier === 'whisper') {
       kind = WHISPER
       w = whisperWidth(text)
@@ -324,19 +414,44 @@ export class World {
       age: 0,
       gold: !!def.gold,
       era: def.era ?? 'both',
-      light: tune.light ?? kind.light ?? 0,
+      light: adj ? (kind.light ?? 0) : (tune.light ?? kind.light ?? 0),
+      adj: adj ? name! : undefined,
+      scale,
       labelY: tune.ly ?? (kind.scribble || kind.mirage ? prev?.labelY : undefined),
       anchorX: tune.x ?? def.x,
       labelX: tune.lx ?? (kind.flood ? def.x : kind.scribble ? prev?.labelX : undefined),
     }
-    if (kind.vehicle || tune.dx || tune.dy) {
-      ent.veh = { dx: tune.dx ?? 0, dy: tune.dy ?? 0, speed: tune.speed ?? 90, s: 0, dir: 1, wait: 1 }
+    const still = adj ? holdsStill(LEXICON[text], adj) : false
+    if (!still && (kind.vehicle || kind.flies || tune.dx || tune.dy)) {
+      // FLYING things bob up and down, unless the page says where they go.
+      const dy = tune.dy ?? (kind.flies && !tune.dx ? -220 : 0)
+      const speed = (tune.speed ?? (kind.flies ? 70 : 90)) * (adj?.speed ?? 1)
+      ent.veh = { dx: tune.dx ?? 0, dy, speed, s: 0, dir: 1, wait: 1 }
     }
     if (kind.guardian) ent.guard = { x: ax, post: ax, state: 'post', timer: 0, target: null, facing: -1 }
     if (kind.mirage) ent.mirrorOf = ink.mirror(text)
     if (kind.sphinx && (this.riddles.get(def.id) ?? 0) >= (def.riddles?.length ?? 0) && def.riddles?.length) ent.resting = true
     if (this.pools.length) this.position(ent, 0)
     return ent
+  }
+
+  /** Adjectives, the Reader and the Blot: words with no shape of their own, only a label. */
+  private buildSpecial(ws: WordState, text: string): Entity {
+    const kind = ws.role === 'tag' ? { ...TAG, desc: describeName(text) } : ws.role === 'reader' ? READER : CHASER
+    const home = { x: 0, y: 0, w: 1, h: 1 }
+    return {
+      uid: ++this.uid,
+      wordId: ws.def.id,
+      text,
+      kind,
+      box: { ...home },
+      home,
+      age: 0,
+      gold: !!ws.def.gold,
+      era: 'both',
+      light: 0,
+      anchorX: 0,
+    }
   }
 
   private buildEcho(ws: WordState, prev: Entity | null): Entity {
@@ -367,6 +482,12 @@ export class World {
   }
 
   private activeOf(ws: WordState): Entity | null {
+    if (ws.role === 'tag') {
+      // An adjective is only on the page while the thing it names is.
+      const noun = ws.of ? this.words.get(ws.of) : undefined
+      return noun && this.activeOf(noun) ? ws.ent : null
+    }
+    if (ws.role === 'chaser') return this.blotX > -Infinity ? ws.ent : null
     const era = ws.def.era
     if (!era) return ws.ent
     if (era === 'present') return this.era === 'present' ? ws.ent : null
@@ -377,6 +498,57 @@ export class World {
   entityOf(wordId: string): Entity | null {
     const ws = this.words.get(wordId)
     return ws ? this.activeOf(ws) : null
+  }
+
+  roleOf(wordId: string): Role | null {
+    return this.words.get(wordId)?.role ?? null
+  }
+
+  /** The adjective naming a thing, if it has one. */
+  tagOn(wordId: string): WordState | null {
+    for (const ws of this.words.values()) if (ws.role === 'tag' && ws.of === wordId) return ws
+    return null
+  }
+
+  nameOf(wordId: string): string | null {
+    return this.tagOn(wordId)?.text ?? null
+  }
+
+  /** A thing's full name: FROZEN CANAL, TINY YOU, or just LAMP. */
+  fullName(wordId: string): string {
+    const ws = this.words.get(wordId)
+    if (!ws) return ''
+    const n = ws.role === 'tag' ? null : this.nameOf(wordId)
+    return n ? `${n} ${ws.text}` : ws.text
+  }
+
+  /** The adjective in the quill. */
+  get carriedText(): string | null {
+    return this.carried ? (this.words.get(this.carried)?.text ?? null) : null
+  }
+
+  get canName(): boolean {
+    return this.level.powers.includes('name')
+  }
+
+  /** What the Reader's own name does to them. */
+  get you(): NonNullable<Adjective['you']> | null {
+    const n = this.level.you ? this.nameOf('you') : null
+    return (n && ADJECTIVES[n]?.you) || null
+  }
+
+  get pw(): number {
+    return PLAYER_W * (this.you?.scale ?? 1)
+  }
+
+  get ph(): number {
+    return PLAYER_H * (this.you?.scale ?? 1)
+  }
+
+  /** The Blot's name, if it has been given one. */
+  private get blotName(): Adjective | null {
+    const n = this.level.blot?.named ? this.nameOf('blot') : null
+    return (n && ADJECTIVES[n]) || null
   }
 
   terrain(): TerrainRect[] {
@@ -395,10 +567,20 @@ export class World {
   }
 
   labelPos(ent: Entity): Vec {
+    const k = ent.kind
+    if (k.tag) {
+      const ws = this.words.get(ent.wordId)
+      const noun = ws?.of ? this.entityOf(ws.of) : null
+      if (!noun) return { x: -9999, y: -9999 }
+      const at = this.labelPos(noun)
+      return { x: at.x, y: at.y - TAG_GAP }
+    }
+    if (k.reader) return { x: this.player.x, y: Math.max(22 + TAG_GAP, this.player.y - this.ph * 0.6 - 44) }
+    if (k.chaser) return { x: this.blotFront + 60, y: 230 }
     const cx = ent.labelX ?? ent.box.x + ent.box.w / 2
-    if (ent.kind.whisper) return { x: cx, y: ent.box.y + ent.box.h / 2 }
+    if (k.whisper) return { x: cx, y: ent.box.y + ent.box.h / 2 }
     const y = ent.labelY ?? ent.box.y - 16
-    return { x: cx, y: Math.max(22, y) }
+    return { x: cx, y: Math.max(this.tagOn(ent.wordId) ? 22 + TAG_GAP : 22, y) }
   }
 
   lightPos(ent: Entity): Vec {
@@ -408,7 +590,7 @@ export class World {
 
   lights(): { x: number; y: number; r: number }[] {
     const p = this.player
-    const out = [{ x: p.x, y: p.y - PLAYER_H / 2, r: PLAYER_LIGHT }]
+    const out = [{ x: p.x, y: p.y - this.ph / 2, r: Math.max(PLAYER_LIGHT, this.you?.light ?? 0) }]
     for (const ent of this.entities()) {
       if (ent.light > 0) out.push({ ...this.lightPos(ent), r: ent.light })
     }
@@ -430,7 +612,9 @@ export class World {
     ws.text = text
     ws.ent = ent
     const at = this.labelPos(ent)
-    this.events.push({ type: 'transform', wordId: ws.def.id, from, to: text, tier: tierOf(text), x: at.x, y: at.y })
+    // An adjective that means something is as good as a thing.
+    const tier = ws.role === 'tag' && nameTier(text) === 'adjective' ? 'thing' : tierOf(text)
+    this.events.push({ type: 'transform', wordId: ws.def.id, from, to: text, tier, x: at.x, y: at.y })
     if (ws.def.era === 'past') {
       const old = ws.echo
       const grown = grow(text)
@@ -441,7 +625,43 @@ export class World {
       }
     }
     if (this.isDark !== wasDark) this.events.push({ type: 'dark', on: this.isDark })
+    if (ws.role === 'tag' && ws.of) this.refresh(this.words.get(ws.of)!)
+    else if (this.tagOn(ws.def.id)) this.events.push({ type: 'named', wordId: ws.def.id, name: this.fullName(ws.def.id), x: at.x, y: at.y })
     this.unstick()
+  }
+
+  /** Rebuilds a thing after its name changed. */
+  private refresh(ws: WordState): void {
+    const wasDark = this.isDark
+    const prev = ws.ent
+    const ent = this.build(ws, ws.text, prev)
+    if (prev.veh && ent.veh) {
+      ent.veh.s = prev.veh.s
+      ent.veh.dir = prev.veh.dir
+      ent.veh.wait = prev.veh.wait
+    } else if (prev.veh) {
+      // Stopped mid-journey: it stays where it was.
+      ent.home = { ...ent.home, x: ent.home.x + prev.box.x - prev.home.x, y: ent.home.y + prev.box.y - prev.home.y }
+      ent.box = { ...ent.home }
+    }
+    if (prev.guard && ent.guard) ent.guard = prev.guard
+    this.ghosts.push({ ent: prev, age: 0 })
+    ws.ent = ent
+    if (!ent.veh) this.position(ent, 0)
+    const at = this.labelPos(ent)
+    this.events.push({ type: 'named', wordId: ws.def.id, name: this.fullName(ws.def.id), x: at.x, y: at.y })
+    if (this.isDark !== wasDark) this.events.push({ type: 'dark', on: this.isDark })
+    this.unstick()
+  }
+
+  /** Is there room for the Reader to be this size, right where they stand? */
+  private roomFor(name: string | null): boolean {
+    const s = (name && ADJECTIVES[name]?.you?.scale) || 1
+    const w = PLAYER_W * s
+    const h = PLAYER_H * s
+    const p = this.player
+    const box = { x: p.x - w / 2, y: p.y - h, w, h }
+    return !this.solids().some((so) => overlap(box, so.r))
   }
 
   /** If a new solid appeared on top of the Reader, lift them onto it. */
@@ -471,7 +691,7 @@ export class World {
     if (ws.def.gold) return 'gold'
     const at = this.labelPos(ent)
     const p = this.player
-    if (Math.hypot(at.x - p.x, at.y - (p.y - PLAYER_H / 2)) > REACH) return 'far'
+    if (Math.hypot(at.x - p.x, at.y - (p.y - this.ph / 2)) > REACH) return 'far'
     if (!this.isLit(at)) return 'dark'
     return null
   }
@@ -487,8 +707,12 @@ export class World {
 
   private snapshot(edit: boolean): void {
     const texts: Record<string, string> = {}
-    for (const [id, ws] of this.words) texts[id] = ws.text
-    this.history.push({ texts, quill: [...this.quill], taken: [...this.taken], edit })
+    const of: Record<string, string | null> = {}
+    for (const [id, ws] of this.words) {
+      texts[id] = ws.text
+      if (ws.role === 'tag') of[id] = ws.of
+    }
+    this.history.push({ texts, quill: [...this.quill], taken: [...this.taken], edit, of, carried: this.carried })
   }
 
   pluckLetter(wordId: string, index: number): boolean {
@@ -496,6 +720,7 @@ export class World {
     const why = this.canEdit(wordId)
     if (why) return this.refuse(why)
     const ws = this.words.get(wordId)!
+    if (ws.def.nameOnly) return this.refuse('fixed')
     if (ws.text.length <= 1) return this.refuse('short')
     const keep = this.canPlace
     if (keep && this.quill.length >= this.level.quill) return this.refuse('full')
@@ -515,6 +740,7 @@ export class World {
     const letter = this.quill[quillIndex]
     if (!letter) return false
     const ws = this.words.get(wordId)!
+    if (ws.def.nameOnly) return this.refuse('fixed')
     this.snapshot(true)
     this.quill.splice(quillIndex, 1)
     const at = this.labelPos(ws.ent)
@@ -529,6 +755,7 @@ export class World {
     const why = this.canEdit(wordId)
     if (why) return this.refuse(why)
     const ws = this.words.get(wordId)!
+    if (ws.def.nameOnly) return this.refuse('fixed')
     const next = ink.mirror(ws.text)
     if (next === ws.text) return this.refuse('same')
     this.snapshot(true)
@@ -544,11 +771,55 @@ export class World {
     const why = this.canEdit(wordId)
     if (why) return this.refuse(why)
     const ws = this.words.get(wordId)!
+    if (ws.def.nameOnly) return this.refuse('fixed')
     if (i === j || ws.text[i] === ws.text[j]) return this.refuse('same')
     this.snapshot(true)
     const at = this.labelPos(ws.ent)
     this.events.push({ type: 'swap', x: at.x, y: at.y })
     this.setText(ws, ink.swap(ws.text, i, j))
+    return true
+  }
+
+  /** Lifts an adjective off whatever it names, into the quill (one ink). */
+  liftName(tagId: string): boolean {
+    if (!this.canName) return this.refuse('power')
+    const ws = this.words.get(tagId)
+    if (!ws || ws.role !== 'tag' || !ws.of) return this.refuse('busy')
+    const why = this.canEdit(tagId)
+    if (why) return this.refuse(why)
+    if (this.carried) return this.refuse('carrying')
+    const noun = this.words.get(ws.of)!
+    if (noun.role === 'reader' && !this.roomFor(null)) return this.refuse('blocked')
+    this.snapshot(true)
+    const at = this.labelPos(ws.ent)
+    ws.of = null
+    this.carried = tagId
+    this.events.push({ type: 'lift', word: ws.text, x: at.x, y: at.y })
+    this.refresh(noun)
+    return true
+  }
+
+  /** Names a thing with the adjective in the quill (one ink). A name it already had comes off into the quill. */
+  nameThing(wordId: string): boolean {
+    if (!this.canName) return this.refuse('power')
+    if (!this.carried) return this.refuse('empty')
+    const ws = this.words.get(wordId)
+    if (!ws || ws.role === 'tag') return this.refuse('busy')
+    const why = this.canEdit(wordId)
+    if (why) return this.refuse(why)
+    const tag = this.words.get(this.carried)!
+    if (ws.role === 'reader' && !this.roomFor(tag.text)) return this.refuse('blocked')
+    const old = this.tagOn(wordId)
+    this.snapshot(true)
+    tag.of = wordId
+    // A fresh label, so the name writes itself in.
+    tag.ent = this.build(tag, tag.text, null)
+    this.carried = null
+    if (old) {
+      old.of = null
+      this.carried = old.def.id
+    }
+    this.refresh(ws)
     return true
   }
 
@@ -564,14 +835,28 @@ export class World {
     if (this.complete) return false
     const snap = this.history.pop()
     if (!snap) return false
+    // Names first, so things are rebuilt knowing what they are called.
+    const renamed = new Set<string>()
+    for (const [id, ws] of this.words) {
+      if (ws.role !== 'tag') continue
+      const of = snap.of[id] ?? null
+      if (of === ws.of) continue
+      if (ws.of) renamed.add(ws.of)
+      if (of) renamed.add(of)
+      ws.of = of
+      ws.ent = this.build(ws, ws.text, null)
+    }
+    this.carried = snap.carried
     for (const [id, ws] of this.words) {
       const text = snap.texts[id]
       if (text !== ws.text) {
         // Restore the exact old shape rather than re-deriving a scribble from the current one.
         const ghost = [...this.ghosts].reverse().find((g) => g.ent.wordId === id && g.ent.text === text)
         this.setText(ws, text, ghost?.ent)
+        renamed.delete(id)
       }
     }
+    for (const id of renamed) this.refresh(this.words.get(id)!)
     this.quill = snap.quill
     this.taken.clear()
     for (const id of snap.taken) this.taken.add(id)
@@ -584,6 +869,8 @@ export class World {
     if (op.type === 'pluck') return this.pluckLetter(op.word, op.index)
     if (op.type === 'mirror') return this.mirrorWord(op.word)
     if (op.type === 'swap') return this.swapLetters(op.word, op.i, op.j)
+    if (op.type === 'lift') return this.liftName(op.word)
+    if (op.type === 'name') return this.nameThing(op.word)
     return this.placeLetter(op.word, op.index, this.quill.indexOf(op.letter))
   }
 
@@ -591,7 +878,7 @@ export class World {
 
   playerBox(): Rect {
     const p = this.player
-    return { x: p.x - PLAYER_W / 2, y: p.y - PLAYER_H, w: PLAYER_W, h: PLAYER_H }
+    return { x: p.x - this.pw / 2, y: p.y - this.ph, w: this.pw, h: this.ph }
   }
 
   solids(): Solid[] {
@@ -665,7 +952,7 @@ export class World {
     if (!d) return false
     if (d.onlyInDark && !this.isDark) return false
     if (d.era && d.era !== this.era) return false
-    if (d.requires && !this.entities().some((e) => e.text === d.requires)) return false
+    if (d.requires && !this.entities().some((e) => e.text === d.requires || (!e.kind.tag && this.fullName(e.wordId) === d.requires))) return false
     return true
   }
 
@@ -732,7 +1019,9 @@ export class World {
 
   /** Is something on the page telling the storm to STOP? */
   get halted(): boolean {
-    return this.entities().some((e) => e.kind.stops)
+    if (this.entities().some((e) => e.kind.stops)) return true
+    const a = this.blotName
+    return !!a && holdsStill({ ...CHASER, alive: true }, a)
   }
 
   private updateBlot(dt: number): void {
@@ -745,7 +1034,7 @@ export class World {
       }
       return
     }
-    this.blotX += b.speed * dt
+    this.blotX += b.speed * (this.blotName?.speed ?? 1) * dt
   }
 
   /** The Sphinx asks when you come near, and moves when the answer exists. */
@@ -790,7 +1079,7 @@ export class World {
 
   private surfaceY(s: Surface, p: Player): number | null {
     if (s.flat) {
-      if (p.x + PLAYER_W / 2 - 3 <= s.x0 || p.x - PLAYER_W / 2 + 3 >= s.x1) return null
+      if (p.x + this.pw / 2 - 3 <= s.x0 || p.x - this.pw / 2 + 3 >= s.x1) return null
       return s.y0
     }
     if (p.x < s.x0 || p.x > s.x1) return null
@@ -820,7 +1109,7 @@ export class World {
     const p = this.player
     const pb = inset(this.playerBox(), 3, 3)
 
-    if (p.y - PLAYER_H > (this.level.height ?? 540) + 40) return this.die()
+    if (p.y - this.ph > (this.level.height ?? 540) + 40) return this.die()
     for (const h of this.hazards()) if (overlap(pb, h)) return this.die()
     if (pb.x < this.blotFront) return this.die()
 
@@ -837,7 +1126,7 @@ export class World {
 
     const d = this.level.diary
     if (d && !this.diaryTaken && this.diaryVisible) {
-      if (Math.hypot(p.x - d.x, p.y - PLAYER_H / 2 - d.y) < 36) {
+      if (Math.hypot(p.x - d.x, p.y - this.ph / 2 - d.y) < 36) {
         this.diaryTaken = true
         this.events.push({ type: 'diary', id: d.id })
       }
@@ -854,7 +1143,7 @@ export class World {
     const p = this.player
     this.dead = true
     this.deathTimer = 0.9
-    this.events.push({ type: 'death', x: p.x, y: p.y - PLAYER_H / 2 })
+    this.events.push({ type: 'death', x: p.x, y: p.y - this.ph / 2 })
   }
 
   private respawn(): void {
@@ -883,6 +1172,12 @@ export class World {
   }
 
   private position(ent: Entity, dt: number): void {
+    if (ent.kind.tag || ent.kind.reader || ent.kind.chaser) {
+      const at = this.labelPos(ent)
+      ent.box = { x: at.x - 30, y: at.y - 12, w: 60, h: 24 }
+      ent.home = { ...ent.box }
+      return
+    }
     let ox = 0
     let oy = 0
     const v = ent.veh
@@ -999,7 +1294,7 @@ export class World {
   private catchLetters(): void {
     const p = this.player
     const cx = p.x
-    const cy = p.y - PLAYER_H / 2
+    const cy = p.y - this.ph / 2
     let near: string | null = null
     for (const l of this.freeLetters()) {
       if (Math.hypot(cx - l.x, cy - l.y) > 30) continue
@@ -1017,6 +1312,9 @@ export class World {
 
   private physics(dt: number, inp: Input): void {
     const p = this.player
+    const you = this.you
+    const move = MOVE * (you?.speed ?? 1)
+    const jumpV = JUMP_V * (you?.jump ?? 1)
     const dir = (inp.right ? 1 : 0) - (inp.left ? 1 : 0)
     if (dir) p.facing = dir as 1 | -1
 
@@ -1035,15 +1333,15 @@ export class World {
       p.vy = ((inp.down ? 1 : 0) - (inp.up ? 1 : 0)) * CLIMB_V
       if (inp.jumpPressed) {
         p.climbing = false
-        p.vy = -JUMP_V * 0.75
+        p.vy = -jumpV * 0.75
         p.buffer = 0
         this.events.push({ type: 'jump' })
       }
     } else {
-      p.vx = approach(p.vx, dir * MOVE, (p.grounded ? 2600 : 1700) * dt)
+      p.vx = approach(p.vx, dir * move, (p.grounded ? 2600 : 1700) * dt)
       p.coyote = p.grounded ? 0.1 : p.coyote - dt
       if (p.buffer > 0 && p.coyote > 0) {
-        p.vy = -JUMP_V
+        p.vy = -jumpV
         p.grounded = false
         p.ground = null
         p.coyote = 0
@@ -1053,7 +1351,8 @@ export class World {
       const updraft = this.zoneAt((k) => k.updraft)
       p.vy += GRAVITY * dt
       if (updraft) p.vy = Math.max(p.vy - UPDRAFT * dt, -UPDRAFT_MAX)
-      else if (p.vy < 0 && !inp.jump) p.vy += GRAVITY * 0.9 * dt
+      else if (p.vy < 0 && !inp.jump && !p.boost) p.vy += GRAVITY * 0.9 * dt
+      if (p.vy >= 0) p.boost = false
       p.vy = Math.min(p.vy, MAX_FALL)
     }
 
@@ -1066,19 +1365,19 @@ export class World {
       const b = this.playerBox()
       if (!overlap(b, s.r)) continue
       const rise = p.y - s.r.y
-      const stepBox = { x: b.x, y: s.r.y - PLAYER_H, w: PLAYER_W, h: PLAYER_H }
+      const stepBox = { x: b.x, y: s.r.y - this.ph, w: this.pw, h: this.ph }
       if ((wasGrounded || p.climbing) && rise > 0 && rise <= STEP_UP && !this.overlapsSolid(stepBox, s.r)) {
         p.y = s.r.y
         continue
       }
-      p.x = p.x < s.r.x + s.r.w / 2 ? s.r.x - PLAYER_W / 2 - 0.001 : s.r.x + s.r.w + PLAYER_W / 2 + 0.001
+      p.x = p.x < s.r.x + s.r.w / 2 ? s.r.x - this.pw / 2 - 0.001 : s.r.x + s.r.w + this.pw / 2 + 0.001
       p.vx = 0
     }
-    p.x = Math.max(PLAYER_W / 2, Math.min(this.level.width - PLAYER_W / 2, p.x))
+    p.x = Math.max(this.pw / 2, Math.min(this.level.width - this.pw / 2, p.x))
 
     // Vertical.
     const prevFeet = p.y
-    const prevTop = p.y - PLAYER_H
+    const prevTop = p.y - this.ph
     p.y += p.vy * dt
     p.grounded = false
     p.ground = null
@@ -1090,7 +1389,7 @@ export class World {
         p.grounded = true
         p.ground = s.ent ?? 'terrain'
       } else if (p.vy < 0 && prevTop >= s.r.y + s.r.h - 2) {
-        p.y = s.r.y + s.r.h + PLAYER_H
+        p.y = s.r.y + s.r.h + this.ph
         p.vy = 0
       }
     }
@@ -1107,9 +1406,18 @@ export class World {
       }
       if (best && (!p.grounded || best.y <= p.y)) {
         p.y = best.y
-        p.vy = 0
-        p.grounded = true
-        p.ground = best.ent
+        if (best.ent.kind.bouncy) {
+          // Sprung back up, higher than any jump.
+          p.vy = -BOUNCE
+          p.grounded = false
+          p.ground = null
+          p.boost = true
+          this.events.push({ type: 'bounce' })
+        } else {
+          p.vy = 0
+          p.grounded = true
+          p.ground = best.ent
+        }
       }
     }
 

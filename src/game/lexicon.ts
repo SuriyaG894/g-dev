@@ -48,16 +48,32 @@ export interface Kind {
   sphinx?: boolean
   /** Halts whatever is chasing you. */
   stops?: boolean
+  /** A living creature (it can be tamed, or put to sleep). */
+  alive?: boolean
+  /** Water, or something like it (it can be frozen). */
+  liquid?: boolean
+  /** A door, a gate, a lid: something that can be opened. */
+  opens?: boolean
+  /** Springs you high into the air when you land on it. */
+  bouncy?: boolean
+  /** Bobs up and down on its own. */
+  flies?: boolean
+  /** An adjective, naming something else. */
+  tag?: boolean
+  /** The Reader's own word. */
+  reader?: boolean
+  /** The Blot's own word, riding its edge. */
+  chaser?: boolean
 }
 
 export const LEXICON: Record<string, Kind> = {
   // Page 1
-  BEAR: { art: 'bear', w: 110, h: 100, hazard: true, desc: 'A bear, guarding the way.' },
+  BEAR: { art: 'bear', w: 110, h: 100, hazard: true, alive: true, desc: 'A bear, guarding the way.' },
   EAR: { art: 'ear', w: 62, h: 44, solid: true, desc: 'A giant ear. It is listening.' },
   BAR: { art: 'bar', w: 90, h: 18, solid: true, desc: 'A bar of cold iron.' },
   BRIDGE: { art: 'bridge', w: 150, h: 20, platform: true, desc: 'A little plank bridge, lying on the ground.' },
   RIDGE: { art: 'ridge', w: 220, h: 150, ramp: 1, desc: 'A grassy ridge. You could walk up it.' },
-  BRIDE: { art: 'bride', w: 36, h: 72, desc: 'A bride. Nobody wrote a groom.' },
+  BRIDE: { art: 'bride', w: 36, h: 72, alive: true, desc: 'A bride. Nobody wrote a groom.' },
 
   // Page 2
   FIRE: { art: 'fire', w: 60, h: 70, hazard: true, light: 230, desc: 'Fire. Ink burns.' },
@@ -69,24 +85,24 @@ export const LEXICON: Record<string, Kind> = {
   HORN: { art: 'horn', w: 50, h: 30, desc: 'A brass horn. Silent for now.' },
 
   // Page 3
-  KNIGHT: { art: 'knight', w: 50, h: 100, hazard: true, desc: 'A knight. He will not let you pass.' },
+  KNIGHT: { art: 'knight', w: 50, h: 100, hazard: true, alive: true, desc: 'A knight. He will not let you pass.' },
   NIGHT: { art: 'night', w: 70, h: 70, darkness: true, light: 90, desc: 'Night. Everything goes dark.' },
-  CLAMP: { art: 'clamp', w: 60, h: 150, solid: true, desc: 'An iron clamp holding the path shut.' },
+  CLAMP: { art: 'clamp', w: 60, h: 150, solid: true, opens: true, desc: 'An iron clamp holding the path shut.' },
   LAMP: { art: 'lamp', w: 30, h: 110, light: 340, desc: 'An oil lamp. Light!' },
   CAMP: { art: 'camp', w: 90, h: 60, desc: 'A small tent. Cosy, not bright.' },
   CLAM: { art: 'clam', w: 44, h: 26, solid: true, desc: 'A clam. Tight-lipped.' },
-  STREAM: { art: 'stream', w: 250, h: 60, hazard: true, desc: 'A deep stream. Ink dissolves in water.' },
+  STREAM: { art: 'stream', w: 250, h: 60, hazard: true, liquid: true, desc: 'A deep stream. Ink dissolves in water.' },
   STEAM: { art: 'steam', w: 250, h: 330, updraft: true, desc: 'Rising steam. It could lift you.' },
   STEM: { art: 'stem', w: 40, h: 330, climb: true, desc: 'A tall stem. Climbable.' },
 
   // Page 4
-  BLOAT: { art: 'bloat', w: 70, h: 50, desc: 'A bloated fish. Something in it wants out.' },
+  BLOAT: { art: 'bloat', w: 70, h: 50, alive: true, desc: 'A bloated fish. Something in it wants out.' },
   BOAT: { art: 'boat', w: 120, h: 28, vehicle: true, desc: 'A boat. It knows the way across.' },
   BLOT: { art: 'blot', w: 90, h: 60, hazard: true, desc: 'A blot. Do not write that word.' },
-  BAT: { art: 'bat', w: 40, h: 24, desc: 'A bat, flapping about.' },
-  BOA: { art: 'boa', w: 90, h: 40, hazard: true, desc: 'A boa. Very squeezy.' },
+  BAT: { art: 'bat', w: 40, h: 24, alive: true, desc: 'A bat, flapping about.' },
+  BOA: { art: 'boa', w: 90, h: 40, hazard: true, alive: true, desc: 'A boa. Very squeezy.' },
   OAT: { art: 'oat', w: 18, h: 12, desc: 'A single oat.' },
-  ADDER: { art: 'adder', w: 100, h: 24, hazard: true, desc: 'An adder. Venomous.' },
+  ADDER: { art: 'adder', w: 100, h: 24, hazard: true, alive: true, desc: 'An adder. Venomous.' },
   LADDER: { art: 'ladder', w: 44, h: 200, climb: true, desc: 'A ladder. Climbable.' },
 
   // Page 5
@@ -104,21 +120,21 @@ export const LEXICON: Record<string, Kind> = {
   DRAIN: { art: 'drain', w: 80, h: 20, tide: 320, desc: 'A drain. Down it all goes.' },
   DRAFT: { art: 'draft', w: 120, h: 50, desc: 'A cold draft over the water.' },
   RAFT: { art: 'raft', w: 130, h: 26, vehicle: true, floats: 8, desc: 'A raft. It floats wherever the water is.' },
-  RAT: { art: 'rat', w: 34, h: 16, desc: 'A library rat.' },
+  RAT: { art: 'rat', w: 34, h: 16, alive: true, desc: 'A library rat.' },
   INK: { art: 'inkpot', w: 28, h: 30, desc: 'My inkpot. Nearly empty.' },
   SINK: { art: 'sink', w: 90, h: 30, tide: 260, desc: 'A sink with the plug pulled.' },
-  EELS: { art: 'eels', w: 200, h: 40, hazard: true, swims: 30, desc: 'A school of eels.' },
-  EEL: { art: 'eel', w: 70, h: 22, hazard: true, swims: 30, desc: 'One eel.' },
-  CAGE: { art: 'cage', w: 80, h: 120, solid: true, desc: 'An iron cage.' },
+  EELS: { art: 'eels', w: 200, h: 40, hazard: true, swims: 30, alive: true, desc: 'A school of eels.' },
+  EEL: { art: 'eel', w: 70, h: 22, hazard: true, swims: 30, alive: true, desc: 'One eel.' },
+  CAGE: { art: 'cage', w: 80, h: 120, solid: true, opens: true, desc: 'An iron cage.' },
   PAGE: { art: 'page', w: 90, h: 14, vehicle: true, desc: 'A page that turns, and lifts.' },
   CANDLE: { art: 'candle', w: 16, h: 40, light: 360, desc: 'The Librarian’s candle.' },
-  CROW: { art: 'crow', w: 100, h: 30, vehicle: true, desc: 'A crow. It carries things across.' },
+  CROW: { art: 'crow', w: 100, h: 30, vehicle: true, alive: true, desc: 'A crow. It carries things across.' },
   BOOK: { art: 'book', w: 36, h: 12, solid: true, desc: 'A book, lying flat.' },
   BOOKS: { art: 'books', w: 50, h: 70, solid: true, desc: 'A stack of books. Good for standing on.' },
   RING: { art: 'bell', w: 40, h: 34, noise: true, desc: 'A desk bell, ringing and ringing.' },
   BELL: { art: 'bell', w: 40, h: 34, noise: true, desc: 'A bell. Loud.' },
   ROAR: { art: 'roar', w: 90, h: 40, noise: true, desc: 'A roar, with nobody making it.' },
-  LIBRARIAN: { art: 'librarian', w: 60, h: 118, hazard: true, guardian: true, desc: 'The Librarian. Gold ink, head to toe.' },
+  LIBRARIAN: { art: 'librarian', w: 60, h: 118, hazard: true, guardian: true, alive: true, desc: 'The Librarian. Gold ink, head to toe.' },
   ROPE: { art: 'rope', w: 24, h: 260, climb: true, desc: 'A rope. Climbable.' },
   FLOOD: { art: 'flood', w: 0, h: 0, flood: true, desc: 'The flood. It is rising.' },
   FLOOR: { art: 'floor', w: 1100, h: 26, solid: true, floats: 4, desc: 'A floor, floating where the flood was.' },
@@ -126,9 +142,9 @@ export const LEXICON: Record<string, Kind> = {
   // Chapter III: The Clockwork Tower. Things planted Then grow up by Now.
   SEED: { art: 'sprout', w: 20, h: 16, grows: 'TREE', desc: 'A seed. Give it time.' },
   TREE: { art: 'tree', w: 70, h: 200, climb: true, desc: 'A tree, grown from a seed. Climbable.' },
-  CUB: { art: 'cub', w: 40, h: 30, grows: 'BEAR', desc: 'A bear cub. Tiny. For now.' },
+  CUB: { art: 'cub', w: 40, h: 30, grows: 'BEAR', alive: true, desc: 'A bear cub. Tiny. For now.' },
   CUBE: { art: 'cube', w: 70, h: 70, solid: true, desc: 'A stone cube. Stone doesn’t grow up.' },
-  IRON: { art: 'iron', w: 40, h: 160, solid: true, grows: 'RUST', desc: 'An iron gate. Iron rusts.' },
+  IRON: { art: 'iron', w: 40, h: 160, solid: true, grows: 'RUST', opens: true, desc: 'An iron gate. Iron rusts.' },
   RUST: { art: 'rust', w: 60, h: 18, desc: 'A heap of rust where a gate used to be.' },
   WHEAT: { art: 'wheat', w: 140, h: 44, desc: 'A field of young wheat.' },
   SPARK: { art: 'spark', w: 20, h: 20, grows: 'FIRE', desc: 'A spark. Sparks grow into fires.' },
@@ -138,14 +154,14 @@ export const LEXICON: Record<string, Kind> = {
   GEAR: { art: 'gear', w: 80, h: 20, vehicle: true, grows: 'COG', desc: 'A turning gear.' },
   COG: { art: 'cog', w: 80, h: 20, vehicle: true, desc: 'A cog, rusted still.' },
   DRIP: { art: 'drip', w: 40, h: 60, grows: 'POND', desc: 'A drip. Drip, drip, for years.' },
-  POND: { art: 'stream', w: 300, h: 40, hazard: true, desc: 'A pond, from years of dripping.' },
+  POND: { art: 'stream', w: 300, h: 40, hazard: true, liquid: true, desc: 'A pond, from years of dripping.' },
   BEAN: { art: 'sprout', w: 20, h: 16, grows: 'STALK', desc: 'A bean. Magic, possibly.' },
   STALK: { art: 'stem', w: 40, h: 380, climb: true, desc: 'A beanstalk. Up and up.' },
   CLOCK: { art: 'clock', w: 60, h: 90, clock: true, desc: 'A clock. It strikes, and time turns.' },
   LOCK: { art: 'padlock', w: 40, h: 44, desc: 'A lock. Time holds still.' },
 
   // Chapter IV: The Mirror Desert
-  RATS: { art: 'rats', w: 140, h: 30, hazard: true, desc: 'A swarm of rats.' },
+  RATS: { art: 'rats', w: 140, h: 30, hazard: true, alive: true, desc: 'A swarm of rats.' },
   STAR: { art: 'star', w: 70, h: 24, platform: true, light: 180, desc: 'A fallen star, low enough to stand on.' },
   SALT: { art: 'salt', w: 60, h: 30, desc: 'A heap of salt.' },
   SLAT: { art: 'slat', w: 200, h: 16, platform: true, desc: 'A long wooden slat.' },
@@ -154,17 +170,170 @@ export const LEXICON: Record<string, Kind> = {
   DAIRY: { art: 'churn', w: 36, h: 50, desc: 'A milk churn, far from any cow.' },
   DIARY: { art: 'diarybook', w: 40, h: 30, desc: 'A diary! The Author’s.' },
   PALM: { art: 'palm', w: 60, h: 280, climb: true, desc: 'A palm tree. Climbable.' },
-  WOLF: { art: 'wolf', w: 90, h: 70, hazard: true, desc: 'A wolf, prowling.' },
-  FLOW: { art: 'trickle', w: 120, h: 14, desc: 'A trickle of water, flowing over the sand.' },
+  WOLF: { art: 'wolf', w: 90, h: 70, hazard: true, alive: true, desc: 'A wolf, prowling.' },
+  FLOW: { art: 'trickle', w: 120, h: 14, liquid: true, desc: 'A trickle of water, flowing over the sand.' },
   SPHINX: { art: 'sphinx', w: 170, h: 150, solid: true, sphinx: true, desc: 'The Sphinx. It asks, and it waits.' },
   EMIT: { art: 'vent', w: 50, h: 40, desc: 'A vent, emitting steam.' },
   TIME: { art: 'hourglass', w: 36, h: 56, desc: 'An hourglass. Time.' },
   ICON: { art: 'tablet', w: 50, h: 64, desc: 'A painted icon on a stone.' },
   COIN: { art: 'coin', w: 30, h: 30, desc: 'A gold coin. Heads, tails, no body.' },
-  SNAKE: { art: 'adder', w: 70, h: 22, hazard: true, desc: 'A desert snake.' },
+  SNAKE: { art: 'adder', w: 70, h: 22, hazard: true, alive: true, desc: 'A desert snake.' },
   STRAW: { art: 'bale', w: 90, h: 130, solid: true, desc: 'A bale of straw, too tall to climb.' },
   SPOT: { art: 'shade', w: 80, h: 10, desc: 'A spot of shade.' },
   STOP: { art: 'stopsign', w: 40, h: 90, stops: true, desc: 'STOP. Even storms can read.' },
+
+  // Chapter V: The City of Ink. Everything here wears a name.
+  SIGN: { art: 'sign', w: 64, h: 100, desc: 'A signpost. Something is written on its board.' },
+  CANAL: { art: 'canal', w: 260, h: 70, hazard: true, liquid: true, desc: 'A canal of black ink-water.' },
+  WALL: { art: 'wall', w: 50, h: 90, solid: true, desc: 'A brick wall. Not very high.' },
+  LION: { art: 'lion', w: 120, h: 90, hazard: true, alive: true, desc: 'A stone lion. Not entirely stone.' },
+  CHEST: { art: 'chest', w: 60, h: 44, opens: true, desc: 'A chest, shut tight.' },
+  GATE: { art: 'gate', w: 60, h: 200, solid: true, opens: true, desc: 'An iron gate, taller than anyone.' },
+  WINDOW: { art: 'window', w: 56, h: 70, desc: 'A window, high in the wall.' },
+  CAT: { art: 'cat', w: 46, h: 40, solid: true, alive: true, desc: 'A cat. It will not move. Cats don’t.' },
+  KEY: { art: 'key', w: 60, h: 18, platform: true, desc: 'A key. It must open something.' },
+  BOTTLE: { art: 'bottle', w: 22, h: 40, desc: 'A little bottle. Its label says DRINK ME.' },
+  DOOR: { art: 'door', w: 46, h: 90, opens: true, desc: 'A door. Doors are for going through.' },
+  LIFT: { art: 'lift', w: 90, h: 16, vehicle: true, desc: 'A lift. Up, and down, and up.' },
+  BED: { art: 'bed', w: 110, h: 34, platform: true, desc: 'A bed, out in the street. Nobody asks.' },
+}
+
+/**
+ * Adjectives: words that change whatever they name. They are generic, so any
+ * thing in the book can be FROZEN, GIANT or BROKEN, not just the ones on this page.
+ */
+export interface Adjective {
+  desc: string
+  /** Size multipliers (width, height). */
+  scale?: [number, number]
+  /** Stretches the longer side. */
+  long?: number
+  freezes?: boolean
+  breaks?: boolean
+  tames?: boolean
+  sleeps?: boolean
+  hushes?: boolean
+  loud?: boolean
+  light?: number
+  burns?: boolean
+  opens?: boolean
+  /** Speed multiplier for anything that moves (0 holds it still). */
+  speed?: number
+  flies?: boolean
+  bouncy?: boolean
+  /** What it does to the Reader. */
+  you?: { scale?: number; speed?: number; jump?: number; light?: number }
+}
+
+export const ADJECTIVES: Record<string, Adjective> = {
+  FROZEN: { desc: 'Frozen solid.', freezes: true },
+  COLD: { desc: 'Cold enough to freeze.', freezes: true },
+  ICY: { desc: 'Icy all the way through.', freezes: true },
+  GIANT: { desc: 'Giant.', scale: [3, 3] },
+  HUGE: { desc: 'Huge.', scale: [3, 3] },
+  BIG: { desc: 'Big.', scale: [1.8, 1.8] },
+  TINY: { desc: 'Tiny.', scale: [0.45, 0.45], you: { scale: 0.5, jump: 0.72 } },
+  SMALL: { desc: 'Small.', scale: [0.6, 0.6], you: { scale: 0.75, jump: 0.86 } },
+  LITTLE: { desc: 'Little.', scale: [0.6, 0.6], you: { scale: 0.75, jump: 0.86 } },
+  TALL: { desc: 'Tall. Twice as tall.', scale: [1, 2] },
+  SHORT: { desc: 'Short.', scale: [1, 0.5] },
+  LONG: { desc: 'Long. Much longer.', long: 2.5 },
+  WIDE: { desc: 'Wide.', scale: [2.5, 1] },
+  BROKEN: { desc: 'Broken. It doesn’t work any more.', breaks: true },
+  TAME: { desc: 'Tame. Gentle as a lamb.', tames: true },
+  ASLEEP: { desc: 'Fast asleep.', sleeps: true },
+  SLEEPING: { desc: 'Sleeping soundly.', sleeps: true },
+  SILENT: { desc: 'Silent.', hushes: true },
+  QUIET: { desc: 'Quiet.', hushes: true },
+  LOUD: { desc: 'Loud. Very loud.', loud: true },
+  LIT: { desc: 'Lit, and glowing.', light: 300, you: { light: 300 } },
+  BRIGHT: { desc: 'Bright as day.', light: 400, you: { light: 380 } },
+  BURNING: { desc: 'On fire.', burns: true, light: 240 },
+  OPEN: { desc: 'Open.', opens: true },
+  FAST: { desc: 'Fast.', speed: 2.5, you: { speed: 1.6 } },
+  QUICK: { desc: 'Quick.', speed: 2.5, you: { speed: 1.6 } },
+  SLOW: { desc: 'Slow. So slow.', speed: 0.35, you: { speed: 0.55 } },
+  STILL: { desc: 'Perfectly still.', speed: 0 },
+  FLYING: { desc: 'Flying, a little.', flies: true },
+  BOUNCY: { desc: 'Bouncy.', bouncy: true, you: { jump: 1.3 } },
+}
+
+/** What an adjective does to a kind of thing. Anything it can't apply to, it leaves alone. */
+export function named(k: Kind, a: Adjective): Kind {
+  const n: Kind = { ...k }
+  const off = (...keys: (keyof Kind)[]) => {
+    for (const key of keys) delete n[key]
+  }
+  if (a.freezes) {
+    if (k.liquid || k.updraft) {
+      off('hazard', 'liquid', 'updraft', 'tide', 'swims', 'floats')
+      n.solid = true
+    } else if (k.alive || (k.hazard && k.light)) {
+      off('hazard', 'guardian', 'vehicle', 'light')
+      n.solid = true
+    } else if (k.vehicle) {
+      off('vehicle')
+      n.platform = true
+    }
+    off('noise', 'clock')
+  }
+  if (a.breaks) {
+    off('solid', 'platform', 'ramp', 'climb', 'vehicle', 'updraft', 'light', 'noise', 'clock', 'stops', 'guardian', 'tide', 'floats', 'bouncy', 'flies')
+  }
+  if (a.tames && k.alive) {
+    off('hazard', 'guardian')
+    if (!n.solid) n.platform = true
+  }
+  if (a.sleeps && k.alive) off('hazard', 'guardian', 'noise', 'vehicle')
+  if (a.hushes) off('noise')
+  if (a.loud) n.noise = true
+  if (a.opens && k.opens) off('solid')
+  if (a.burns && !k.liquid) n.hazard = true
+  if (a.light && !a.breaks) n.light = Math.max(k.light ?? 0, a.light)
+  if (a.flies || a.bouncy) {
+    off('solid')
+    n.platform = true
+    if (a.flies) n.flies = true
+    if (a.bouncy) n.bouncy = true
+  }
+  return n
+}
+
+/** Does this adjective stop a moving thing (or a creature) where it stands? */
+export function holdsStill(k: Kind, a: Adjective): boolean {
+  return a.speed === 0 || !!a.freezes || !!a.breaks || (!!a.sleeps && !!k.alive)
+}
+
+export type NameTier = 'adjective' | 'word' | 'nonsense'
+
+/** How a word reads when it is used as a name. */
+export function nameTier(text: string): NameTier {
+  if (ADJECTIVES[text]) return 'adjective'
+  return isRealWord(text) ? 'word' : 'nonsense'
+}
+
+export function describeName(text: string): string {
+  const t = nameTier(text)
+  if (t === 'adjective') return ADJECTIVES[text].desc
+  return t === 'word' ? 'A word, but it doesn’t describe anything.' : 'Nonsense. It spoils whatever it names.'
+}
+
+export const TAG: Kind = { art: 'none', w: 0, h: 0, tag: true, desc: '' }
+
+export const READER: Kind = {
+  art: 'none',
+  w: 20,
+  h: 38,
+  reader: true,
+  desc: 'You. Here, even you are only a word.',
+}
+
+export const CHASER: Kind = {
+  art: 'none',
+  w: 0,
+  h: 0,
+  chaser: true,
+  desc: 'The Blot. It eats words. It is one.',
 }
 
 export const MIRAGE: Kind = {

@@ -8,10 +8,21 @@ export interface QuillActions {
   swap: (i: number, j: number) => void
   mirror: () => void
   discard: (quillIndex: number) => void
+  /** Lifts an adjective into the quill. */
+  lift: (tagId: string) => void
+  /** Names the open word with the adjective in the quill. */
+  name: () => void
+  /** Switches the card to another word (a thing's adjective, say). */
+  open: (wordId: string) => void
   close: () => void
 }
 
 type Tool = 'pluck' | 'swap'
+
+function off(b: HTMLButtonElement, disabled: boolean): HTMLButtonElement {
+  b.disabled = disabled
+  return b
+}
 
 /** The editing card: a word, enlarged, with its letters and gaps. */
 export class QuillPanel {
@@ -51,10 +62,12 @@ export class QuillPanel {
     const ent = world.entityOf(this.wordId)
     if (!ws || !ent) return this.close()
     const text = ws.text
-    const mirrors = world.level.powers.includes('mirror')
+    // The Reader and the Blot keep their spelling: they can only be named.
+    const fixed = !!ws.def.nameOnly
+    const mirrors = world.level.powers.includes('mirror') && !fixed
     if (!mirrors) this.tool = 'pluck'
     const swapping = this.tool === 'swap'
-    const canPlace = !swapping && world.canPlace && world.quill.length > 0
+    const canPlace = !fixed && !swapping && world.canPlace && world.quill.length > 0
     const letter = world.quill[this.sel]
     const preview = h('div', { class: 'qp-preview', text: ' ' })
     const setPreview = (s: string | null) => {
@@ -67,7 +80,10 @@ export class QuillPanel {
       b.addEventListener('pointerleave', () => setPreview(null))
     }
 
-    const row = h('div', { class: 'qp-word' + (swapping ? ' swapping' : ''), attrs: { role: 'group', 'aria-label': `Letters of ${text}` } })
+    const row = h('div', {
+      class: 'qp-word' + (swapping ? ' swapping' : '') + (ws.role === 'tag' ? ' naming' : '') + (fixed ? ' fixed' : ''),
+      attrs: { role: 'group', 'aria-label': `Letters of ${text}` },
+    })
     const gap = (i: number) => {
       if (!canPlace || !letter) return null
       const b = button('+', () => this.actions.place(i, this.sel), 'qp-gap', { 'aria-label': `Write ${letter} here` })
@@ -75,6 +91,10 @@ export class QuillPanel {
       return b
     }
     for (let i = 0; i < text.length; i++) {
+      if (fixed) {
+        row.append(h('span', { class: 'qp-letter static', text: text[i] }))
+        continue
+      }
       const g = gap(i)
       if (g) row.append(g)
       const picked = swapping && this.first === i
@@ -127,13 +147,15 @@ export class QuillPanel {
       : null
 
     let help: string
-    if (swapping) help = this.first === null ? 'Pick a letter, then another, to trade their places.' : `Now pick the letter to trade with ${text[this.first]}.`
+    if (fixed) help = world.carriedText ? `This word can’t be respelled. But it can be named ${world.carriedText}.` : 'This word can’t be respelled, only named. Lift a name from something first.'
+    else if (ws.role === 'tag') help = 'A name. Lift it off to give it to something else, or respell it like any word.'
+    else if (swapping) help = this.first === null ? 'Pick a letter, then another, to trade their places.' : `Now pick the letter to trade with ${text[this.first]}.`
     else if (!world.canPlace) help = 'Click a letter to pluck it out. Nonsense turns to wild ink.'
     else if (world.quill.length === 0) help = 'Pluck a letter to keep it in your quill.'
     else help = `Pluck a letter, or click a + to write ${letter} into the word.`
 
     const quillRow =
-      world.canPlace && !swapping
+      world.canPlace && !swapping && !fixed
         ? h(
             'div',
             { class: 'qp-quill' },
@@ -154,10 +176,11 @@ export class QuillPanel {
 
     const el = h(
       'div',
-      { class: 'quill-panel card', attrs: { role: 'dialog', 'aria-label': `Edit ${text}` } },
+      { class: 'quill-panel card', attrs: { role: 'dialog', 'aria-label': `Edit ${world.fullName(this.wordId)}` } },
       button('×', () => this.actions.close(), 'qp-close', { 'aria-label': 'Close (Esc)' }),
       h('div', { class: 'qp-desc', text: ent.kind.desc }),
-      tools,
+      world.canName ? this.names(world, this.wordId) : null,
+      fixed ? null : tools,
       row,
       preview,
       quillRow,
@@ -166,8 +189,38 @@ export class QuillPanel {
     this.el?.remove()
     this.el = el
     this.root.append(el)
-    const focus = el.querySelector<HTMLButtonElement>('.qp-letter.picked') ?? el.querySelector<HTMLButtonElement>('.qp-letter:not([disabled])')
+    const focus =
+      el.querySelector<HTMLButtonElement>('.qp-letter.picked') ??
+      (world.carriedText ? el.querySelector<HTMLButtonElement>('.qp-name-btn.on') : null) ??
+      el.querySelector<HTMLButtonElement>('.qp-letter:not([disabled]):not(.static)') ??
+      el.querySelector<HTMLButtonElement>('.qp-name-btn:not([disabled])')
     focus?.focus({ preventScroll: true })
+    // Opening the card shouldn't announce what plucking the first letter would spell.
+    if (!swapping || this.first === null) setPreview(null)
+  }
+
+  /** The Name power: what this word is called, lifting a name off, giving one. */
+  private names(world: World, id: string): HTMLElement | null {
+    const ws = world.words.get(id)!
+    const carried = world.carriedText
+    const items: (HTMLElement | null)[] = []
+    if (ws.role === 'tag') {
+      const of = ws.of ? world.words.get(ws.of) : null
+      items.push(h('span', { class: 'qp-names-on', text: of ? `naming ${of.text}` : '' }))
+      items.push(off(button(`⤴ Lift ${ws.text}`, () => this.actions.lift(id), 'qp-tool qp-name-btn', { 'aria-label': `Lift ${ws.text} into your quill` }), !!carried || !!ws.def.gold))
+    } else {
+      const tag = world.tagOn(id)
+      if (tag) {
+        items.push(button(tag.text, () => this.actions.open(tag.def.id), 'qp-name-chip', { 'aria-label': `Respell ${tag.text}`, title: 'Respell this name' }))
+        items.push(off(button('⤴ Lift', () => this.actions.lift(tag.def.id), 'qp-tool qp-name-btn', { 'aria-label': `Lift ${tag.text} into your quill` }), !!carried || !!tag.def.gold))
+      }
+      if (carried) {
+        const label = `✒ Name it ${carried}` + (tag ? ` (${tag.text} comes off)` : '')
+        items.push(button(label, () => this.actions.name(), 'qp-tool qp-name-btn on', { 'aria-label': label }))
+      }
+    }
+    if (!items.some(Boolean)) return null
+    return h('div', { class: 'qp-names', attrs: { role: 'group', 'aria-label': 'Names' } }, ...items)
   }
 
   private toolButton(label: string, tool: Tool, world: World): HTMLButtonElement {

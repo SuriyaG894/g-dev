@@ -1,7 +1,7 @@
 {
   "name": "the-last-page",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A mysterious word-bending puzzle adventure inside an unfinished storybook.",
   "type": "module",
   "scripts": {

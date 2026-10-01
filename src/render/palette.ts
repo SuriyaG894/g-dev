@@ -11,6 +11,8 @@ export interface Palette {
   gold: string
   glow: string
   blot: string
+  /** The ink adjectives are written in. */
+  name: string
 }
 
 const base: Palette = {
@@ -24,6 +26,7 @@ const base: Palette = {
   gold: '#b0802a',
   glow: '#f5d98a',
   blot: '#0b0806',
+  name: '#7a3466',
 }
 
 export const PALETTES: Record<Theme, Palette> = {
@@ -36,4 +39,5 @@ export const PALETTES: Record<Theme, Palette> = {
   flood: { ...base, accent: '#1f5a70', paper: '#e7ddc7', paperDark: '#d2c3a1', water: '#184a60' },
   clock: { ...base, accent: '#a0772b', paper: '#ede2c7', paperDark: '#d8c6a0', leaf: '#6b8a4f' },
   desert: { ...base, accent: '#c07a2c', paper: '#f0e1c0', paperDark: '#e2c88f', leaf: '#7a8a3a', water: '#3a7a8a' },
+  city: { ...base, accent: '#3f5a86', paper: '#ebe5d6', paperDark: '#d4cab3', leaf: '#5d7a62', water: '#23415c', ink: '#1b1a22' },
 }

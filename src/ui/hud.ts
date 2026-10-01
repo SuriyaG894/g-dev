@@ -17,12 +17,14 @@ export class Hud {
   private slots: HTMLElement
   private soundBtn: HTMLButtonElement
   private flipBtn: HTMLButtonElement | null = null
+  private nameSlot: HTMLElement
   private last = ''
 
   constructor(root: HTMLElement, world: World, actions: HudActions, muted: boolean) {
     const lvl = world.level
     this.ink = h('div', { class: 'hud-ink' })
     this.slots = h('div', { class: 'quill-slots', attrs: { 'aria-label': 'Your quill' } })
+    this.nameSlot = h('div', { class: 'name-slot', attrs: { 'aria-label': 'The name in your quill', 'aria-live': 'polite' } })
     this.soundBtn = button(muted ? '♪̸' : '♪', actions.sound, 'icon-btn', { 'aria-label': 'Toggle sound (M)', title: 'Sound (M)' })
     if (world.canFlip) this.flipBtn = button('⟲ Then', actions.flip, 'flip-btn', { 'aria-label': 'Turn time (F)', title: 'Turn time (F)' })
     this.el = h(
@@ -33,7 +35,7 @@ export class Hud {
         { class: 'hud-left' },
         h('div', { class: 'hud-page', text: `Page ${words(lvl.page)} · ${lvl.title}` }),
         this.ink,
-        world.canPlace ? this.slots : null,
+        world.canPlace || world.canName ? h('div', { class: 'hud-row' }, world.canPlace ? this.slots : null, world.canName ? this.nameSlot : null) : null,
       ),
       h(
         'div',
@@ -55,7 +57,7 @@ export class Hud {
   }
 
   update(world: World): void {
-    const key = `${world.edits}|${world.quill.join('')}|${world.era}`
+    const key = `${world.edits}|${world.quill.join('')}|${world.era}|${world.carriedText}`
     if (key === this.last) return
     this.last = key
     this.ink.textContent = `Ink used ${world.edits} · Perfect ${world.level.par}`
@@ -63,6 +65,10 @@ export class Hud {
     if (this.flipBtn) {
       this.flipBtn.textContent = world.era === 'present' ? '⟲ Then' : '⟲ Now'
       this.flipBtn.classList.toggle('past', world.era === 'past')
+    }
+    if (world.canName) {
+      const n = world.carriedText
+      this.nameSlot.replaceChildren(h('span', { class: 'quill-label', text: 'Name' }), h('span', { class: 'name-chip' + (n ? ' full' : ''), text: n ?? '—' }))
     }
     if (world.canPlace) {
       this.slots.replaceChildren(

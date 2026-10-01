@@ -32,6 +32,9 @@ export type Sfx =
   | 'mirror'
   | 'riddle'
   | 'stop'
+  | 'lift'
+  | 'name'
+  | 'bounce'
 
 const SCALES: Record<Theme, number[]> = {
   // A minor pentatonic, gentle.
@@ -48,6 +51,8 @@ const SCALES: Record<Theme, number[]> = {
   clock: [196, 220, 246.94, 277.18, 311.13, 349.23, 392],
   // Phrygian dominant: heat and distance.
   desert: [146.83, 155.56, 185, 196, 220, 233.08, 261.63, 293.66],
+  // Lydian: bright, a little uncanny. Streetlamps and wet cobbles.
+  city: [130.81, 146.83, 164.81, 185, 196, 220, 246.94, 261.63],
 }
 
 export class Sound {
@@ -260,6 +265,17 @@ export class Sound {
       case 'stop':
         this.hiss(0.6, { freq: 900, q: 0.6, gain: 0.2, type: 'lowpass', to: 200 })
         this.tone(196, 0.8, { gain: 0.08 })
+        break
+      case 'lift':
+        this.tone(392, 0.25, { type: 'triangle', to: 784, gain: 0.08 })
+        this.hiss(0.2, { freq: 5000, q: 1.2, gain: 0.06, to: 9000 })
+        break
+      case 'name':
+        ;[587.33, 880, 1174.66].forEach((f, i) => this.tone(f, 0.6, { at: i * 0.06, gain: 0.06, type: i === 1 ? 'triangle' : 'sine' }))
+        this.hiss(0.15, { freq: 2500, q: 2, gain: 0.08 })
+        break
+      case 'bounce':
+        this.tone(180, 0.25, { to: 520, gain: 0.12, type: 'triangle' })
         break
       case 'water':
         this.hiss(1.2, { freq: 400, q: 0.5, gain: 0.12, type: 'lowpass', to: 900 })

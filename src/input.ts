@@ -6,7 +6,7 @@ const UP = ['ArrowUp', 'KeyW']
 const DOWN = ['ArrowDown', 'KeyS']
 const JUMP = ['Space']
 
-export type Action = 'undo' | 'restart' | 'pause' | 'edit' | 'hint' | 'mute' | 'debug' | 'flip'
+export type Action = 'undo' | 'restart' | 'pause' | 'edit' | 'hint' | 'mute' | 'debug' | 'flip' | 'self'
 
 /** Keyboard + on-screen touch buttons, merged into one Input per step. */
 export class Controls {
@@ -33,6 +33,7 @@ export class Controls {
       else if (code === 'KeyH') this.onAction('hint', e)
       else if (code === 'KeyM') this.onAction('mute', e)
       else if (code === 'KeyF' || code === 'KeyQ') this.onAction('flip', e)
+      else if (code === 'KeyY') this.onAction('self', e)
       else if (code === 'Backquote') this.onAction('debug', e)
     }
     this.held.add(code)

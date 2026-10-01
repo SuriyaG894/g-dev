@@ -10,9 +10,9 @@ export interface Rect {
   h: number
 }
 
-export type Power = 'pluck' | 'place' | 'mirror'
+export type Power = 'pluck' | 'place' | 'mirror' | 'name'
 
-export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert'
+export type Theme = 'woods' | 'river' | 'night' | 'blot' | 'library' | 'archive' | 'flood' | 'clock' | 'desert' | 'city'
 
 /** Then or Now. Pages in the Clockwork Tower exist in both. */
 export type Era = 'past' | 'present'
@@ -53,7 +53,15 @@ export interface WordDef {
   mirage?: boolean
   /** For a Sphinx: riddles, answered by making the answer word exist anywhere on the page. */
   riddles?: { q: string; a: string }[]
+  /**
+   * Overrides keyed by spelling (tune.RIDGE), or by a full name (tune['GIANT KEY']),
+   * which wins over the plain spelling.
+   */
   tune?: Record<string, Tune>
+  /** An adjective: the id of the thing it starts out naming. */
+  of?: string
+  /** Letters can't be changed, but it can still be named (the Reader, the Blot). */
+  nameOnly?: boolean
 }
 
 export type NoteTrigger =
@@ -61,8 +69,9 @@ export type NoteTrigger =
   | { x: number }
   /** Fires when the Reader climbs above this height. */
   | { y: number }
+  /** A spelling, or a full name once something is named (e.g. 'FROZEN CANAL'). */
   | { word: string }
-  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' | 'past' | 'present' | 'grow' | 'strike' | 'stopped' }
+  | { event: 'dark' | 'diary' | 'firstQuill' | 'letter' | 'lure' | 'shush' | 'past' | 'present' | 'grow' | 'strike' | 'stopped' | 'lift' | 'slowed' }
 
 /**
  * A body of water whose level can change. Tide words (RAIN, SINK…) shift it;
@@ -107,6 +116,10 @@ export type Op =
   | { type: 'place'; word: string; index: number; letter: string }
   | { type: 'mirror'; word: string }
   | { type: 'swap'; word: string; i: number; j: number }
+  /** Lifts an adjective off whatever it names, into the quill. */
+  | { type: 'lift'; word: string }
+  /** Names a thing with the adjective in the quill. */
+  | { type: 'name'; word: string }
 
 export interface LevelDef {
   id: string
@@ -140,8 +153,10 @@ export interface LevelDef {
   checkpoints?: Vec[]
   dark?: boolean
   /** A chasing wall: the Blot, or (style 'sand') a sandstorm. A STOP word halts it. */
-  blot?: { x: number; speed: number; delay: number; style?: 'ink' | 'sand' }
-  /** requires: the page only appears once a word with this spelling exists. */
+  blot?: { x: number; speed: number; delay: number; style?: 'ink' | 'sand'; named?: boolean }
+  /** The Reader has a word of its own on this page (YOU), and can be named. */
+  you?: boolean
+  /** requires: the page only appears once a word with this spelling (or full name) exists. */
   diary?: { id: string; x: number; y: number; onlyInDark?: boolean; era?: Era; requires?: string }
   notes: NoteDef[]
   hints: string[]

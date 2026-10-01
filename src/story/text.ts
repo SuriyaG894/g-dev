@@ -32,9 +32,12 @@ export const EVENT_NOTES = {
   blocked: 'You can’t be there, in that time. Something is in the way.',
   grew: 'Somewhere, Now, something just changed.',
   same: 'That changes nothing. Some words look the same in any mirror.',
+  carrying: 'Your quill already holds a name. Give it to something first.',
+  empty: 'Your quill holds no name. Lift one off something first.',
+  fixed: 'That word can’t be respelled. It can only be named.',
 }
 
-export const TAB_WHISPERS = ['Come back…', 'The Blot is waiting.', 'Don’t leave me on this page.', 'Are you still reading?']
+export const TAB_WHISPERS = ['Come back…', 'The Blot is waiting.', 'Don’t leave me on this page.', 'Are you still reading?', 'What are you called, out there?']
 
 export interface DiaryEntry {
   id: string
@@ -87,6 +90,17 @@ export const DIARY: DiaryEntry[] = [
       '— A.',
     ],
   },
+  {
+    id: 'diary-5',
+    title: 'A page from the locked chest',
+    body: [
+      'Mira gave everything in the ward a name.',
+      'The drip stand was Tall Geoffrey. The night nurse was the Gentle Lion.',
+      '“If you give a thing a name,” she said, “it has to be kind to you.”',
+      'Afterwards, I tried it on the dark. The dark didn’t answer.',
+      '— A.',
+    ],
+  },
 ]
 
 export const CHAPTER_ENDS: Record<number, string[]> = {
@@ -113,6 +127,12 @@ export const CHAPTER_ENDS: Record<number, string[]> = {
     'In its eye, two pale lights blink, and look away.',
     'The desert was only ever a reflection of something.',
     'Ahead, a city is being written in ink.',
+  ],
+  5: [
+    'The last lamp in the city comes on by itself.',
+    'Under it, somebody has chalked a name on the cobbles: MIRA.',
+    'The Blot creeps up to the word, slowly, and does not touch it.',
+    'Beyond the rooftops, the page smells of salt.',
   ],
 }
 

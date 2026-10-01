@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import * as ink from '../src/game/ink'
-import { LEXICON, tierOf } from '../src/game/lexicon'
+import { ADJECTIVES, LEXICON, tierOf } from '../src/game/lexicon'
 import { World, grow } from '../src/game/world'
 import { CHAPTERS, ALL_LEVELS } from '../src/levels'
 import { loadDictionary } from './helpers'
@@ -23,6 +23,10 @@ describe('level data', () => {
       it('has a spelling-valid solution whose length is par', () => {
         expect(level.solution.length).toBe(level.par)
         const texts = new Map(level.words.map((w) => [w.id, w.text]))
+        // Adjectives, and what each one names.
+        const of = new Map(level.words.filter((w) => w.of !== undefined).map((w) => [w.id, w.of as string | null]))
+        const startOf = new Map(of)
+        let carried: string | null = null
         // Lost letters count as already caught.
         const quill: string[] = (level.letters ?? []).map((l) => l.letter)
         for (const op of level.solution) {
@@ -35,6 +39,17 @@ describe('level data', () => {
             texts.set(op.word, ink.mirror(text))
           } else if (op.type === 'swap') {
             texts.set(op.word, ink.swap(text, op.i, op.j))
+          } else if (op.type === 'lift') {
+            expect(of.get(op.word), `${op.word} names something`).toBeTruthy()
+            expect(carried, 'the quill holds one name at a time').toBeNull()
+            of.set(op.word, null)
+            carried = op.word
+          } else if (op.type === 'name') {
+            expect(carried, `a name to give ${op.word}`).not.toBeNull()
+            const old = [...of].find(([, o]) => o === op.word)?.[0] ?? null
+            of.set(carried!, op.word)
+            carried = old
+            if (old) of.set(old, null)
           } else {
             const i = quill.indexOf(op.letter)
             expect(i, `letter ${op.letter} in quill`).toBeGreaterThanOrEqual(0)
@@ -48,15 +63,25 @@ describe('level data', () => {
           const was = level.words[i].text
           return t !== was && (tierOf(t) === 'thing' || grow(t) !== grow(was))
         })
-        expect(changed).toBe(true)
+        // …or a real adjective now names something new.
+        const renamed = [...of].some(([id, o]) => o && o !== startOf.get(id) && ADJECTIVES[texts.get(id)!])
+        expect(changed || renamed).toBe(true)
       })
 
       it('only uses powers the page allows', () => {
-        for (const op of level.solution) expect(level.powers).toContain(op.type === 'swap' ? 'mirror' : op.type)
+        const power = { swap: 'mirror', lift: 'name' } as Record<string, string>
+        for (const op of level.solution) expect(level.powers).toContain(power[op.type] ?? op.type)
       })
 
       it('has tuned spellings that exist in the lexicon', () => {
-        for (const w of level.words) for (const t of Object.keys(w.tune ?? {})) expect(LEXICON[t], t).toBeDefined()
+        for (const w of level.words) {
+          for (const t of Object.keys(w.tune ?? {})) {
+            // A full name: an adjective, then a thing.
+            const [a, n] = t.includes(' ') ? t.split(' ') : [null, t]
+            if (a) expect(ADJECTIVES[a], a).toBeDefined()
+            expect(LEXICON[n], n).toBeDefined()
+          }
+        }
       })
     })
   }

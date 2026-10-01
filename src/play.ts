@@ -2,7 +2,7 @@ import type { App } from './app'
 import type { Action } from './input'
 import { LEXICON } from './game/lexicon'
 import type { LevelDef, NoteTrigger } from './game/types'
-import { PLAYER_H, World, type EditRefusal } from './game/world'
+import { World, type EditRefusal } from './game/world'
 import { Particles } from './render/particles'
 import { EVENT_NOTES, pick } from './story/text'
 import { h, roman, words } from './ui/dom'
@@ -52,6 +52,14 @@ export class Play {
       place: (gap, q) => this.edit(() => this.world.placeLetter(this.panel.wordId!, gap, q)),
       swap: (i, j) => this.edit(() => this.world.swapLetters(this.panel.wordId!, i, j)),
       mirror: () => this.edit(() => this.world.mirrorWord(this.panel.wordId!)),
+      lift: (id) => this.edit(() => this.world.liftName(id)),
+      name: () => this.edit(() => this.world.nameThing(this.panel.wordId!)),
+      open: (id) => {
+        const why = this.world.canEdit(id)
+        if (why) this.refused(why)
+        else this.panel.open(this.world, id)
+        this.drain()
+      },
       discard: (q) => {
         this.world.discard(q)
         this.app.sound.play('click')
@@ -214,7 +222,7 @@ export class Play {
           break
         case 'diary':
           app.sound.play('diary')
-          this.particles.sparkle(w.player.x, w.player.y - PLAYER_H, 24)
+          this.particles.sparkle(w.player.x, w.player.y - w.ph, 24)
           app.foundDiary(e.id)
           this.trigger((n) => 'event' in n && n.event === 'diary')
           window.setTimeout(() => {
@@ -246,7 +254,7 @@ export class Play {
           break
         case 'flip':
           app.sound.play(e.forced ? 'chime' : 'flip')
-          this.particles.sparkle(w.player.x, w.player.y - PLAYER_H / 2, 18, e.era === 'past' ? '#d9b27a' : '#a0772b')
+          this.particles.sparkle(w.player.x, w.player.y - w.ph / 2, 18, e.era === 'past' ? '#d9b27a' : '#a0772b')
           if (e.forced) {
             this.shake = 4
             this.trigger((n) => 'event' in n && n.event === 'strike')
@@ -279,6 +287,19 @@ export class Play {
           app.notes.say(q, { urgent: true, by: '— the Sphinx' })
           break
         }
+        case 'lift':
+          app.sound.play('lift')
+          this.particles.letter(e.x, e.y - 6, e.word)
+          this.trigger((n) => 'event' in n && n.event === 'lift')
+          break
+        case 'named':
+          app.sound.play('name')
+          this.particles.sparkle(e.x, e.y, 14, '#7a3466')
+          this.trigger((n) => 'word' in n && n.word === e.name)
+          break
+        case 'bounce':
+          app.sound.play('bounce')
+          break
         case 'stopped':
           app.sound.play('stop')
           app.sound.stopHum()
@@ -310,6 +331,9 @@ export class Play {
       echo: EVENT_NOTES.echo,
       blocked: EVENT_NOTES.blocked,
       same: EVENT_NOTES.same,
+      carrying: EVENT_NOTES.carrying,
+      empty: EVENT_NOTES.empty,
+      fixed: EVENT_NOTES.fixed,
     }
     const t = text[reason]
     if (t) this.app.notes.say(t, { urgent: true })
@@ -343,16 +367,20 @@ export class Play {
     this.app.canvas.focus({ preventScroll: true })
   }
 
+  /** The closest word in reach: things first (their card leads to their names), then anything else. */
   private nearestWord(): string | null {
     const w = this.world
     let best: { id: string; d: number } | null = null
+    let other: { id: string; d: number } | null = null
     for (const ent of w.entities()) {
       if (w.canEdit(ent.wordId)) continue
       const at = w.labelPos(ent)
       const d = Math.hypot(at.x - w.player.x, at.y - w.player.y)
-      if (!best || d < best.d) best = { id: ent.wordId, d }
+      if (w.roleOf(ent.wordId) === 'thing') {
+        if (!best || d < best.d) best = { id: ent.wordId, d }
+      } else if (!other || d < other.d) other = { id: ent.wordId, d }
     }
-    return best?.id ?? null
+    return (best ?? other)?.id ?? null
   }
 
   private hint(): void {
@@ -404,6 +432,12 @@ export class Play {
         break
       case 'hint':
         this.hint()
+        break
+      case 'self':
+        if (!this.paused && this.world.entityOf('you')) {
+          if (this.panel.isOpen) this.closePanel()
+          this.openWord('you')
+        }
         break
       case 'mute':
         this.app.toggleMute()

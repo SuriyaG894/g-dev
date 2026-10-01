@@ -1,7 +1,9 @@
 import type { Theme } from '../game/types'
-import { PLAYER_H, REACH, type Entity, type World } from '../game/world'
+import { REACH, type Entity, type World } from '../game/world'
 import { ART } from './art'
 import { gearShape } from './art3'
+import { adjOverlay } from './art5'
+import { ADJECTIVES } from '../game/lexicon'
 import { PALETTES, type Palette } from './palette'
 import type { Particles } from './particles'
 import { Pen, type Pt } from './pen'
@@ -28,6 +30,9 @@ export interface LabelHit {
 }
 
 const P = (x: number, y: number): Pt => ({ x, y })
+
+/** Art that draws its own broken state. */
+const BREAKS_ITSELF = new Set(['gate', 'lift'])
 
 function hash(n: number): number {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453
@@ -185,6 +190,7 @@ export class Renderer {
     if (lvl.theme === 'library' || lvl.theme === 'archive' || lvl.theme === 'flood') this.shelves(lvl.theme, pal, st.t)
     else if (lvl.theme === 'clock') this.clockworks(world, pal, st.t)
     else if (lvl.theme === 'desert') this.dunes(world, pal, st.t)
+    else if (lvl.theme === 'city') this.city(world, pal, st.t)
     else this.background(lvl.theme, pal, st.t, lvl.width)
     this.stains(lvl.id)
     pen.boil = boil
@@ -390,6 +396,77 @@ export class Renderer {
     c.restore()
   }
 
+  /** Rooftops and chimneys, windows, and words strung on washing lines between the houses. */
+  private city(world: World, pal: Palette, t: number): void {
+    const c = this.ctx
+    const pen = this.pen
+    const dark = world.isDark
+    c.save()
+    for (let layer = 0; layer < 2; layer++) {
+      const par = 0.18 + layer * 0.2
+      const left = this.camX * par
+      const step = 90 - layer * 20
+      for (let px = Math.floor((left - 120) / step) * step; px <= left + this.viewW + 120; px += step) {
+        const k = Math.round(px / step) + layer * 1000
+        const x = this.camX + (px - left)
+        const w = step * (0.7 + hash(k) * 0.5)
+        const top = this.camY + 150 + layer * 70 + hash(k + 1) * 110
+        const bot = this.camY + VIEW_H + 20
+        c.globalAlpha = 0.07 + layer * 0.05
+        c.fillStyle = pal.ink
+        c.fillRect(x, top, w, bot - top)
+        // A roof, sometimes pointed.
+        if (hash(k + 2) < 0.5) {
+          c.beginPath()
+          c.moveTo(x - 4, top)
+          c.lineTo(x + w / 2, top - 20 - hash(k + 3) * 20)
+          c.lineTo(x + w + 4, top)
+          c.fill()
+        } else {
+          c.fillRect(x + w * 0.7, top - 22, 9, 22)
+        }
+        // Windows: a few lit, more of them at night.
+        c.globalAlpha = (dark ? 0.5 : 0.18) * (layer ? 1 : 0.6)
+        for (let wy = top + 14; wy < top + 120; wy += 26) {
+          for (let wx = x + 8; wx < x + w - 12; wx += 18) {
+            if (hash(wx * 0.37 + wy * 1.7) < (dark ? 0.45 : 0.25)) {
+              c.fillStyle = '#f5d98a'
+              c.fillRect(wx, wy, 7, 10)
+            }
+          }
+        }
+      }
+    }
+    c.restore()
+    // Washing lines hung with letters, swaying.
+    const left = this.camX * 0.5
+    for (let px = Math.floor((left - 400) / 640) * 640 + 200; px <= left + this.viewW + 400; px += 640) {
+      const x0 = this.camX + (px - left)
+      const x1 = x0 + 260
+      const y = this.camY + 70 + hash(px) * 40
+      pen.seed(px)
+      const sag = 30
+      pen.stroke([P(x0, y), P((x0 + x1) / 2, y + sag), P(x1, y)], { w: 1, alpha: 0.25, plain: true })
+      const word = ['INK', 'NAME', 'MIRA', 'HOME', 'WORD'][Math.abs(Math.round(px / 640)) % 5]
+      c.save()
+      c.font = `16px ${this.font}`
+      c.textAlign = 'center'
+      c.fillStyle = pal.ink
+      c.globalAlpha = 0.22
+      for (let i = 0; i < word.length; i++) {
+        const k = (i + 1) / (word.length + 1)
+        const lx = x0 + (x1 - x0) * k
+        const ly = y + sag * 4 * k * (1 - k) + 14 + Math.sin(t * 1.5 + i + px) * 2
+        c.fillText(word[i], lx, ly)
+      }
+      c.restore()
+    }
+    if (dark) {
+      pen.seed(8)
+      pen.ellipse(this.camX + this.viewW * 0.8, this.camY + 80, 26, 26, { w: 1.4, alpha: 0.3, plain: true })
+    }
+  }
+
   /** Dunes, heat haze, and a sun (or, at night, a moon). */
   private dunes(world: World, pal: Palette, t: number): void {
     const c = this.ctx
@@ -505,7 +582,7 @@ export class Renderer {
       c.stroke()
     }
     if (this.flipFx > 0 && !reduced) {
-      const p = this.toScreen(world.player.x, world.player.y - PLAYER_H / 2)
+      const p = this.toScreen(world.player.x, world.player.y - world.ph / 2)
       const r = (1 - this.flipFx) * Math.max(this.cssW, this.cssH) * 0.9
       c.globalAlpha = this.flipFx * 0.7
       c.strokeStyle = world.era === 'past' ? '#8a5a1e' : pal.accent
@@ -643,7 +720,8 @@ export class Renderer {
       c.fillStyle = pal.paperDark
       c.fillRect(x, y, w, h)
       c.restore()
-      pen.hatch(x, y + 4, w, h - 4, { gap: 11, alpha: 0.14 })
+      if (theme === 'city') this.bricks(x, y, w, h)
+      else pen.hatch(x, y + 4, w, h - 4, { gap: 11, alpha: 0.14 })
       pen.rect(x, y, w, h, { w: 2.2 })
       return
     }
@@ -663,6 +741,13 @@ export class Renderer {
     pen.line(x, y, x - 1, bottom, { w: 2 })
     pen.line(x + w, y, x + w + 1, bottom, { w: 2 })
     if (theme === 'blot') return
+    if (theme === 'city') {
+      for (let px = Math.ceil(vx0 / 26) * 26; px < vx1 - 10; px += 26) {
+        pen.ellipse(px + 13, y + 9, 11, 5, { w: 1, alpha: 0.4, plain: true })
+        pen.ellipse(px + 26, y + 21, 11, 5, { w: 1, alpha: 0.3, plain: true })
+      }
+      return
+    }
     if (theme === 'desert') {
       for (let px = Math.ceil(vx0 / 40) * 40; px < vx1 - 10; px += 40) {
         pen.ellipse(px + hash(px) * 20, y + 14 + hash(px + 1) * 30, 14, 3, { from: Math.PI, to: Math.PI * 2, w: 1, alpha: 0.35, plain: true })
@@ -675,6 +760,21 @@ export class Renderer {
       pen.line(gx, y, gx - 3, y - 6 - hash(px + 2) * 5, { w: 1.2, color: pal.leaf, alpha: 0.8, plain: true })
       pen.line(gx + 2, y, gx + 5, y - 5 - hash(px + 3) * 5, { w: 1.2, color: pal.leaf, alpha: 0.8, plain: true })
     }
+  }
+
+  private bricks(x: number, y: number, w: number, h: number): void {
+    const c = this.ctx
+    const y0 = Math.max(y, this.camY - 20)
+    const y1 = Math.min(y + h, this.camY + VIEW_H + 20)
+    c.save()
+    c.globalAlpha = 0.16
+    c.fillStyle = this.pen.ink
+    for (let by = Math.floor((y0 - y) / 16) * 16 + y; by < y1; by += 16) {
+      c.fillRect(x + 2, by, w - 4, 1)
+      const off = Math.round((by - y) / 16) % 2 ? 0 : 17
+      for (let bx = x + off; bx < x + w - 4; bx += 34) c.fillRect(bx, by, 1, 16)
+    }
+    c.restore()
   }
 
   private water(x: number, y: number, w: number, h: number, pal: Palette, t: number): void {
@@ -732,6 +832,8 @@ export class Renderer {
   // --------------------------------------------------------------- entities
 
   private entity(ent: Entity, pal: Palette, st: DrawState, boil: number, reveal: number): void {
+    const k = ent.kind
+    if (k.tag || k.reader || k.chaser) return
     const c = this.ctx
     const b = ent.box
     if (b.x > this.camX + this.viewW + 150 || b.x + b.w < this.camX - 150) return
@@ -745,8 +847,31 @@ export class Renderer {
     }
     this.pen.boil = boil
     this.pen.seed(ent.uid * 31)
-    if (art) art({ pen: this.pen, c, b, t: st.t, pal, ent, font: this.italic })
+    const a = { pen: this.pen, c, b, t: st.t, pal, ent, font: this.italic }
+    if (art && ent.scale) {
+      // Drawn at its natural size, then stretched: a GIANT cat is still a cat.
+      const sc = ent.scale
+      const cx = b.x + b.w / 2
+      const bot = b.y + b.h
+      const nb = { x: cx - b.w / sc.x / 2, y: bot - b.h / sc.y, w: b.w / sc.x, h: b.h / sc.y }
+      c.save()
+      c.translate(cx, bot)
+      c.scale(sc.x, sc.y)
+      c.translate(-cx, -bot)
+      art({ ...a, b: nb })
+      c.restore()
+    } else if (art && ent.adj && ADJECTIVES[ent.adj]?.breaks && !BREAKS_ITSELF.has(k.art)) {
+      // Broken things sag: tipped over on one corner, and a little faded.
+      c.save()
+      c.translate(b.x, b.y + b.h)
+      c.rotate(0.12)
+      c.translate(-b.x, -(b.y + b.h))
+      c.globalAlpha *= 0.8
+      art(a)
+      c.restore()
+    } else if (art) art(a)
     else this.pen.rect(b.x, b.y, b.w, b.h, { w: 2 })
+    if (ent.adj) adjOverlay(a, ent.adj)
     c.restore()
     this.pen.boil = boil
   }
@@ -762,19 +887,24 @@ export class Renderer {
       const at = world.labelPos(ent)
       if (at.x < this.camX - 80 || at.x > this.camX + this.viewW + 80) continue
       if (at.y < this.camY - 40 || at.y > this.camY + VIEW_H + 40) continue
-      const width = c.measureText(ent.text).width
+      const k = ent.kind
+      const size = k.tag ? 17 : k.reader ? 15 : k.chaser ? 26 : 22
+      c.font = `${size}px ${k.tag ? this.italic : this.font}`
+      const text = k.tag ? ent.text.split('').join(' ') : ent.text
+      const width = c.measureText(text).width
       if (ent.kind.whisper) {
         this.labels.push({ wordId: ent.wordId, x: ent.box.x, y: ent.box.y, w: ent.box.w, h: ent.box.h })
         if (st.hover === ent.wordId || st.selected === ent.wordId) this.underline(at.x, at.y + 15, ent.box.w - 10, pal.gold)
         continue
       }
-      this.labels.push({ wordId: ent.wordId, x: at.x - width / 2 - 10, y: at.y - 16, w: width + 20, h: 32 })
+      const half = k.tag || k.reader ? 11 : 16
+      this.labels.push({ wordId: ent.wordId, x: at.x - width / 2 - 10, y: at.y - half, w: width + 20, h: half * 2 })
       const why = world.canEdit(ent.wordId)
       const hot = st.hover === ent.wordId || st.selected === ent.wordId
       const alpha = why === null || why === 'gold' ? 1 : 0.55
       c.globalAlpha = 0.6 * alpha
       c.fillStyle = pal.paper
-      this.roundRect(at.x - width / 2 - 8, at.y - 13, width + 16, 26, 8)
+      this.roundRect(at.x - width / 2 - 8, at.y - half + 3, width + 16, half * 2 - 6, 8)
       c.fill()
       if (st.selected === ent.wordId) {
         const g = c.createRadialGradient(at.x, at.y, 2, at.x, at.y, width)
@@ -785,18 +915,20 @@ export class Renderer {
         c.fillRect(at.x - width, at.y - width, width * 2, width * 2)
       }
       c.globalAlpha = alpha * (ent.echo ? 0.75 : 1)
-      c.fillStyle = ent.gold ? pal.gold : ent.kind.scribble ? '#6b2a1f' : ent.echo ? '#6d5c45' : pal.ink
+      const nonsense = k.tag && world.entityOf(world.words.get(ent.wordId)?.of ?? '')?.kind.scribble
+      c.fillStyle = ent.gold ? pal.gold : k.scribble || nonsense ? '#6b2a1f' : k.tag ? pal.name : k.reader ? '#9b3b2e' : k.chaser ? '#5a0f0a' : ent.echo ? '#6d5c45' : pal.ink
       if (ent.echo) this.tinyClock(at.x - width / 2 - 14, at.y, pal)
       // Letter by letter, each one breathing slightly.
       let x = at.x - width / 2
-      for (let i = 0; i < ent.text.length; i++) {
-        const ch = ent.text[i]
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i]
         const cw = c.measureText(ch).width
-        const jy = st.reduced ? 0 : Math.sin(st.t * 2 + i * 1.7 + ent.uid) * (ent.kind.scribble ? 2.5 : 0.8)
+        const jy = st.reduced ? 0 : Math.sin(st.t * 2 + i * 1.7 + ent.uid) * (ent.kind.scribble || nonsense ? 2.5 : 0.8)
         c.fillText(ch, x + cw / 2, at.y + jy + (hot ? -1 : 0))
         x += cw
       }
-      if (hot) this.underline(at.x, at.y + 13, width, pal.gold)
+      if (hot) this.underline(at.x, at.y + half - 3, width, pal.gold)
+      c.font = `22px ${this.font}`
     }
     c.restore()
   }
@@ -820,6 +952,32 @@ export class Renderer {
   // ----------------------------------------------------------------- reader
 
   private player(world: World, pal: Palette, t: number): void {
+    const p = world.player
+    const you = world.you
+    const c0 = this.ctx
+    if (you?.light) {
+      const g = c0.createRadialGradient(p.x, p.y - world.ph / 2, 2, p.x, p.y - world.ph / 2, 70)
+      g.addColorStop(0, `rgba(245,217,138,${0.55 + Math.sin(t * 4) * 0.08})`)
+      g.addColorStop(1, 'rgba(245,217,138,0)')
+      c0.fillStyle = g
+      c0.fillRect(p.x - 70, p.y - world.ph / 2 - 70, 140, 140)
+    }
+    if (you?.speed && you.speed > 1 && p.grounded && Math.abs(p.vx) > 100) {
+      this.pen.seed(Math.floor(t * 12))
+      for (let i = 0; i < 3; i++) this.pen.line(p.x - p.facing * (14 + i * 4), p.y - 10 - i * 9, p.x - p.facing * (34 + i * 8), p.y - 10 - i * 9, { w: 1.2, alpha: 0.5, plain: true })
+    }
+    const s = you?.scale ?? 1
+    c0.save()
+    if (s !== 1) {
+      c0.translate(p.x, p.y)
+      c0.scale(s, s)
+      c0.translate(-p.x, -p.y)
+    }
+    this.drawReader(world, pal, t)
+    c0.restore()
+  }
+
+  private drawReader(world: World, pal: Palette, t: number): void {
     const p = world.player
     const pen = this.pen
     const f = p.facing
@@ -983,7 +1141,7 @@ export class Renderer {
     c.strokeStyle = pal.gold
     c.lineWidth = 1.5
     c.beginPath()
-    c.arc(p.x, p.y - PLAYER_H / 2, REACH, 0, Math.PI * 2)
+    c.arc(p.x, p.y - world.ph / 2, REACH, 0, Math.PI * 2)
     c.stroke()
     c.restore()
   }

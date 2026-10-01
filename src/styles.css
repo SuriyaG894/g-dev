@@ -6,6 +6,7 @@
   --ink-soft: rgba(30, 25, 20, 0.62);
   --gold: #b0802a;
   --red: #9b3b2e;
+  --name: #7a3466;
   --night: #0f0d12;
   --f-title: 'IM Fell English SC', Georgia, serif;
   --f-body: 'IM Fell English', Georgia, serif;
@@ -817,6 +818,95 @@ h3 {
 .qp-tool:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
+}
+
+.qp-letter.static {
+  cursor: default;
+  border-style: dashed;
+}
+
+.qp-word.naming .qp-letter {
+  color: var(--name);
+  font-style: italic;
+}
+
+.qp-names {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.qp-names-on {
+  font: italic 16px var(--f-body);
+  color: var(--name);
+}
+
+.qp-name-chip {
+  font: italic 20px var(--f-title);
+  letter-spacing: 0.12em;
+  color: var(--name);
+  background: rgba(251, 245, 228, 0.7);
+  border: 1.5px dashed var(--name);
+  border-radius: 14px;
+  padding: 4px 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.qp-name-chip:hover,
+.qp-name-chip:focus-visible {
+  border-style: solid;
+  outline: none;
+}
+
+.qp-tool.qp-name-btn {
+  border-color: var(--name);
+  color: var(--name);
+}
+
+.qp-tool.qp-name-btn.on,
+.qp-tool.qp-name-btn:hover:not(:disabled) {
+  background: var(--name);
+  color: var(--paper);
+}
+
+.qp-tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.name-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.name-chip {
+  font: italic 18px var(--f-title);
+  letter-spacing: 0.1em;
+  min-width: 44px;
+  padding: 3px 10px;
+  text-align: center;
+  color: rgba(30, 25, 20, 0.45);
+  border: 1.5px dashed rgba(122, 52, 102, 0.5);
+  border-radius: 12px;
+}
+
+.name-chip.full {
+  color: var(--name);
+  border-style: solid;
+  border-color: var(--name);
+  background: var(--paper-3);
+  animation: drop-in 0.35s ease both;
 }
 
 .qp-letter:disabled {
